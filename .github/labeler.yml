@@ -1,0 +1,15 @@
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ["docs/**/*", "README.md", "CLAUDE.md"]
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ["tests/**/*"]
+
+source:
+  - changed-files:
+      - any-glob-to-any-file: ["src/**/*"]
+
+github:
+  - changed-files:
+      - any-glob-to-any-file: [".github/**/*"]

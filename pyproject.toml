@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pystructure"
+version = "0.1.0"
+description = "Static Python project structure analyzer for dependency graph visualization"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "PyStructure" }]
+keywords = ["python", "ast", "analysis", "graph", "structure"]
+
+[project.scripts]
+pystructure = "cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["analyzer", "cli", "graph", "import_resolver", "models", "scanner"]
