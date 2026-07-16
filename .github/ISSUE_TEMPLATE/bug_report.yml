@@ -1,0 +1,40 @@
+name: "🐛 バグ報告"
+description: プロジェクトの不具合や予期しない動作を報告する
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "バグのご報告ありがとうございます。再現に必要な情報をご記入ください。"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: バグの概要
+      description: 何が起こったのかを簡潔に教えてください。
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 再現手順
+      description: バグを再現するための手順を書いてください。
+      value: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 実行環境
+      description: 発生した環境の詳細を記入してください。
+      value: |
+        - OS: 
+        - Python: 
+        - 実行コマンド: 
+    validations:
+      required: true

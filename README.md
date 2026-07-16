@@ -1,42 +1,59 @@
 # PyStructure
 
-PyStructure is a Python static-analysis core for visualizing Python project structure and dependencies.
+PyStructure は、Python プロジェクトの構造と依存関係を可視化するための静的解析コアです。
 
-It scans Python source files, parses them with `ast`, and extracts:
+Python ソースを `ast` で解析し、次の情報を抽出します。
 
-- files and modules
-- classes and functions
-- import relationships
-- graph nodes and edges for later visualization
+- ファイルとモジュール
+- クラスと関数
+- import 関係
+- 後続の可視化に使うノードとエッジ
 
-## Goals
+## 現在の実装状況
 
-- Static analysis only, no code execution
-- Standard library first, especially `ast`
-- Small, well-separated responsibilities
-- Easy to extend for a future PyCharm plugin UI
+実装本体は `src/` 直下にフラットに配置しています。
 
-## Project Layout
+- `src/cli.py`: CLI の入口
+- `src/analyzer.py`: AST 解析とシンボル抽出
+- `src/scanner.py`: ファイル探索とモジュール名の解決
+- `src/import_resolver.py`: import の正規化と解決
+- `src/graph.py`: 依存グラフの構築とシリアライズ
+- `src/models.py`: 共通データクラス
 
-- `src/pystructure/scanner.py`: file discovery and module naming
-- `src/pystructure/analyzer.py`: AST parsing and symbol extraction
-- `src/pystructure/import_resolver.py`: import normalization and module resolution helpers
-- `src/pystructure/graph.py`: dependency graph assembly and serialization
-- `src/pystructure/models.py`: shared dataclasses
-- `src/pystructure/cli.py`: command-line entrypoint
+現時点では `src/` 配下にパッケージディレクトリは置いていません。コアがまだ小さいうちは、この方が全体を見通しやすいためです。
 
-## Run
+## 目的
+
+- 実行せず、静的解析のみを行う
+- 標準ライブラリを優先し、特に `ast` を使う
+- 責務を小さく分けて保守しやすくする
+- 将来の PyCharm プラグイン UI に接続しやすくする
+
+## 構成
+
+- `src/cli.py`: CLI の入口
+- `src/analyzer.py`: AST 解析とシンボル抽出
+- `src/scanner.py`: ファイル探索とモジュール名の解決
+- `src/import_resolver.py`: import の正規化と解決
+- `src/graph.py`: 依存グラフの構築とシリアライズ
+- `src/models.py`: 共通データクラス
+
+## 実行方法
 
 ```bash
-python -m pystructure analyze path/to/project --json
+pystructure analyze path/to/project --json
 ```
 
-## Tests
+新規クローン直後で未インストールの場合は、`src/` を Python の検索パスに追加するか、編集可能インストールを行ってください。
+
+## テスト
 
 ```bash
 python -m unittest discover -s tests
 ```
 
-## Notes
+## 補足
 
-This repository currently contains only the analysis core scaffold. PyCharm integration can be layered on top of this engine later without changing the parser model.
+このリポジトリは、現時点では解析コアのひな形のみを含みます。ソースは見通しを重視して `src/` 直下にフラット配置しており、`build/`、`dist/`、`*.egg-info/` などの生成物は `.gitignore` で除外しています。
+
+PyCharm 連携は、この解析コアの上に後から追加できます。
