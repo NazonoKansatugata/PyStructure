@@ -3,15 +3,11 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
-type CliPayload = {
-  analysis: {
-    root: string;
-    modules: Array<{ module_name: string }>;
-  };
-  graph: {
-    nodes: unknown[];
-    edges: unknown[];
-  };
+import { CliPayload, ResultsViewProvider } from './resultsView';
+
+type CliError = Error & {
+  stderr?: string;
+  command?: string;
 };
 
 async function runPyStructureCli(scriptPath: string, workspacePath: string): Promise<CliPayload> {
@@ -21,7 +17,7 @@ async function runPyStructureCli(scriptPath: string, workspacePath: string): Pro
     { command: 'py', args: ['-3', scriptPath, 'analyze', workspacePath, '--json'] },
   ];
 
-  let lastError: unknown;
+  let lastError: CliError | undefined;
 
   for (const attempt of attempts) {
     try {
@@ -30,9 +26,12 @@ async function runPyStructureCli(scriptPath: string, workspacePath: string): Pro
           attempt.command,
           attempt.args,
           { maxBuffer: 10 * 1024 * 1024 },
-          (error: Error | null, stdoutText: string) => {
+          (error: Error | null, stdoutText: string, stderrText: string) => {
             if (error) {
-              reject(error);
+              const cliError = error as CliError;
+              cliError.stderr = stderrText;
+              cliError.command = `${attempt.command} ${attempt.args.join(' ')}`;
+              reject(cliError);
               return;
             }
 
@@ -43,16 +42,35 @@ async function runPyStructureCli(scriptPath: string, workspacePath: string): Pro
 
       return JSON.parse(stdout) as CliPayload;
     } catch (error) {
-      lastError = error;
+      lastError = error as CliError;
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('PyStructure CLI の起動に失敗しました。');
+  const error: CliError = lastError ?? new Error('PyStructure CLI の起動に失敗しました。');
+  const messageLines = ['PyStructure CLI の起動に失敗しました。'];
+
+  if (error.command) {
+    messageLines.push(`Command: ${error.command}`);
+  }
+
+  if (error.message) {
+    messageLines.push(`Message: ${error.message}`);
+  }
+
+  if (error.stderr) {
+    messageLines.push('stderr:', error.stderr.trim() || '(empty)');
+  }
+
+  throw new Error(messageLines.join('\n'));
 }
 
 export function activate(context: vscode.ExtensionContext): void {
   const outputChannel = vscode.window.createOutputChannel('PyStructure');
   const cliScriptPath = path.resolve(context.extensionPath, '..', 'src', 'cli.py');
+  const resultsProvider = new ResultsViewProvider();
+  const resultsView = vscode.window.createTreeView('pystructureResults', {
+    treeDataProvider: resultsProvider,
+  });
 
   const disposable = vscode.commands.registerCommand('pystructure.analyzeWorkspace', async () => {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -67,6 +85,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     try {
       const payload = await runPyStructureCli(cliScriptPath, workspaceFolder.uri.fsPath);
+      resultsProvider.setResult(payload);
       outputChannel.appendLine(JSON.stringify(payload, null, 2));
       void vscode.window.showInformationMessage(
         `PyStructure: ${payload.analysis.modules.length} modules, ${payload.graph.nodes.length} nodes, ${payload.graph.edges.length} edges`
@@ -78,7 +97,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   });
 
-  context.subscriptions.push(disposable, outputChannel);
+  context.subscriptions.push(disposable, outputChannel, resultsView);
 }
 
 export function deactivate(): void {

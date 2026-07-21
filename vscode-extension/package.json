@@ -11,10 +11,19 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:pystructure.analyzeWorkspace"
+    "onCommand:pystructure.analyzeWorkspace",
+    "onView:pystructureResults"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "pystructureResults",
+          "name": "PyStructure Results"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "pystructure.analyzeWorkspace",
