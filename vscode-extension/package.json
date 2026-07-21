@@ -1,0 +1,35 @@
+{
+  "name": "pystructure-vscode",
+  "displayName": "PyStructure",
+  "description": "VS Code extension scaffold for the PyStructure analyzer.",
+  "version": "0.1.0",
+  "publisher": "pystructure",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:pystructure.analyzeWorkspace"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pystructure.analyzeWorkspace",
+        "title": "PyStructure: Analyze Workspace"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "lint": "tsc -p . --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.6.3"
+  }
+}
