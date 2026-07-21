@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from analyzer import ProjectAnalyzer
+from api import analyze_project
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -23,25 +23,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "analyze":
-        analyzer = ProjectAnalyzer()
-        result, graph = analyzer.build_graph(args.path)
+        bundle = analyze_project(args.path)
 
         if args.json:
-            print(
-                json.dumps(
-                    {
-                        "analysis": result.to_dict(),
-                        "graph": graph.to_dict(),
-                    },
-                    ensure_ascii=False,
-                    indent=2,
-                )
-            )
+            print(json.dumps(bundle.to_dict(), ensure_ascii=False, indent=2))
         else:
-            print(f"Root: {result.root}")
-            print(f"Modules: {len(result.modules)}")
-            print(f"Nodes: {len(graph.nodes)}")
-            print(f"Edges: {len(graph.edges)}")
+            print(f"Root: {bundle.analysis.root}")
+            print(f"Modules: {len(bundle.analysis.modules)}")
+            print(f"Nodes: {len(bundle.graph.nodes)}")
+            print(f"Edges: {len(bundle.graph.edges)}")
         return 0
 
     parser.error("Unknown command")
