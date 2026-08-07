@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
+import logging
 from pathlib import Path
+import tokenize
 
 from call_analyzer import CallAnalyzer
 from graph import GraphBuilder, DependencyGraph
 from import_resolver import ImportResolver
 from models import AnalysisResult, ClassInfo, FunctionInfo, ImportBinding, ImportInfo, ModuleInfo
 from scanner import ProjectScanner
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -78,7 +83,12 @@ class ProjectAnalyzer:
 
     def analyze(self, root: Path) -> AnalysisResult:
         root = root.resolve()
-        modules = [self._analyze_file(root, path) for path in self.scanner.scan(root)]
+        modules: list[ModuleInfo] = []
+        for path in self.scanner.scan(root):
+            try:
+                modules.append(self._analyze_file(root, path))
+            except (OSError, SyntaxError, UnicodeDecodeError) as error:
+                logger.warning("Skipping Python file %s: %s", path, error)
         return AnalysisResult(root=root, modules=modules)
 
     def build_graph(self, root: Path) -> tuple[AnalysisResult, DependencyGraph]:
@@ -86,7 +96,8 @@ class ProjectAnalyzer:
         return result, self.graph_builder.build(result.modules)
 
     def _analyze_file(self, root: Path, path: Path) -> ModuleInfo:
-        source = path.read_text(encoding="utf-8")
+        with tokenize.open(path) as source_file:
+            source = source_file.read()
         tree = ast.parse(source, filename=str(path))
         visitor = _ModuleVisitor(imports=[], classes=[], functions=[])
         visitor.visit(tree)

@@ -56,6 +56,28 @@ class AnalyzerTests(unittest.TestCase):
             package_init = next(item for item in result.modules if item.module_name == "package")
             self.assertEqual(package_init.imports[0].module, "package.module")
 
+    def test_reads_python_source_using_declared_encoding(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            legacy_source = "# -*- coding: cp932 -*-\n\nMESSAGE = \"表\"\n"
+            (root / "legacy.py").write_bytes(legacy_source.encode("cp932"))
+
+            result = ProjectAnalyzer().analyze(root)
+
+            self.assertEqual(len(result.modules), 1)
+            self.assertEqual(result.modules[0].module_name, "legacy")
+            self.assertEqual(result.modules[0].functions, ())
+
+    def test_skips_python_file_with_null_bytes_and_continues(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "good.py").write_text("def ok():\n    return 1\n", encoding="utf-8")
+            (root / "broken.py").write_bytes(b"\x00def nope():\n    return 0\n")
+
+            result = ProjectAnalyzer().analyze(root)
+
+            self.assertEqual([module.module_name for module in result.modules], ["good"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,6 +16,11 @@ async function runPyStructureCli(scriptPath: string, workspacePath: string): Pro
     { command: 'python3', args: [scriptPath, 'analyze', workspacePath, '--json'] },
     { command: 'py', args: ['-3', scriptPath, 'analyze', workspacePath, '--json'] },
   ];
+  const env = {
+    ...process.env,
+    PYTHONUTF8: '1',
+    PYTHONIOENCODING: 'utf-8',
+  };
 
   let lastError: CliError | undefined;
 
@@ -25,7 +30,7 @@ async function runPyStructureCli(scriptPath: string, workspacePath: string): Pro
         cp.execFile(
           attempt.command,
           attempt.args,
-          { maxBuffer: 10 * 1024 * 1024 },
+          { env, maxBuffer: 10 * 1024 * 1024 },
           (error: Error | null, stdoutText: string, stderrText: string) => {
             if (error) {
               const cliError = error as CliError;
@@ -86,7 +91,9 @@ export function activate(context: vscode.ExtensionContext): void {
     try {
       const payload = await runPyStructureCli(cliScriptPath, workspaceFolder.uri.fsPath);
       resultsProvider.setResult(payload);
-      outputChannel.appendLine(JSON.stringify(payload, null, 2));
+      outputChannel.appendLine(
+        `PyStructure: analysis complete (${payload.analysis.modules.length} modules, ${payload.graph.nodes.length} nodes, ${payload.graph.edges.length} edges)`
+      );
       void vscode.window.showInformationMessage(
         `PyStructure: ${payload.analysis.modules.length} modules, ${payload.graph.nodes.length} nodes, ${payload.graph.edges.length} edges`
       );
