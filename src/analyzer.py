@@ -4,9 +4,10 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
+from call_analyzer import CallAnalyzer
 from graph import GraphBuilder, DependencyGraph
 from import_resolver import ImportResolver
-from models import AnalysisResult, ClassInfo, FunctionInfo, ImportInfo, ModuleInfo
+from models import AnalysisResult, ClassInfo, FunctionInfo, ImportBinding, ImportInfo, ModuleInfo
 from scanner import ProjectScanner
 
 
@@ -21,6 +22,7 @@ class _ModuleVisitor(ast.NodeVisitor):
             ImportInfo(
                 module=None,
                 names=tuple(alias.name for alias in node.names),
+                bindings=tuple(ImportBinding(name=alias.name, asname=alias.asname) for alias in node.names),
                 level=0,
                 lineno=node.lineno,
             )
@@ -31,6 +33,7 @@ class _ModuleVisitor(ast.NodeVisitor):
             ImportInfo(
                 module=node.module,
                 names=tuple(alias.name for alias in node.names),
+                bindings=tuple(ImportBinding(name=alias.name, asname=alias.asname) for alias in node.names),
                 level=node.level,
                 lineno=node.lineno,
             )
@@ -70,6 +73,7 @@ class ProjectAnalyzer:
     def __init__(self) -> None:
         self.scanner = ProjectScanner()
         self.import_resolver = ImportResolver()
+        self.call_analyzer = CallAnalyzer()
         self.graph_builder = GraphBuilder()
 
     def analyze(self, root: Path) -> AnalysisResult:
@@ -97,15 +101,18 @@ class ProjectAnalyzer:
                     current_is_package=path.name == "__init__.py",
                 ),
                 names=item.names,
+                bindings=item.bindings,
                 level=item.level,
                 lineno=item.lineno,
             )
             for item in visitor.imports
         )
+        calls = self.call_analyzer.analyze(module_name, tree, imports)
         return ModuleInfo(
             path=path,
             module_name=module_name,
             imports=imports,
             classes=tuple(visitor.classes),
             functions=tuple(visitor.functions),
+            calls=calls,
         )

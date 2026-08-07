@@ -6,9 +6,22 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class ImportBinding:
+    name: str
+    asname: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "asname": self.asname,
+        }
+
+
+@dataclass(frozen=True)
 class ImportInfo:
     module: str | None
     names: tuple[str, ...]
+    bindings: tuple[ImportBinding, ...]
     level: int
     lineno: int
 
@@ -16,6 +29,7 @@ class ImportInfo:
         return {
             "module": self.module,
             "names": list(self.names),
+            "bindings": [binding.to_dict() for binding in self.bindings],
             "level": self.level,
             "lineno": self.lineno,
         }
@@ -34,6 +48,22 @@ class FunctionInfo:
             "lineno": self.lineno,
             "is_async": self.is_async,
             "kind": self.kind,
+        }
+
+
+@dataclass(frozen=True)
+class CallInfo:
+    caller: str
+    callee: str
+    resolved_callee: str | None
+    lineno: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "caller": self.caller,
+            "callee": self.callee,
+            "resolved_callee": self.resolved_callee,
+            "lineno": self.lineno,
         }
 
 
@@ -60,6 +90,7 @@ class ModuleInfo:
     imports: tuple[ImportInfo, ...] = ()
     classes: tuple[ClassInfo, ...] = ()
     functions: tuple[FunctionInfo, ...] = ()
+    calls: tuple[CallInfo, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -68,6 +99,7 @@ class ModuleInfo:
             "imports": [item.to_dict() for item in self.imports],
             "classes": [item.to_dict() for item in self.classes],
             "functions": [item.to_dict() for item in self.functions],
+            "calls": [item.to_dict() for item in self.calls],
         }
 
 

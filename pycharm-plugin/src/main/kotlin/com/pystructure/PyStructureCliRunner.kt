@@ -9,13 +9,13 @@ data class CliRunResult(
 )
 
 object PyStructureCliRunner {
-    fun run(projectBasePath: String, command: String = "pystructure"): CliRunResult {
-        val process = ProcessBuilder(
-            command,
-            "analyze",
-            projectBasePath,
-            "--json",
-        )
+    fun run(projectBasePath: String, command: String = "pystructure", jsonOutput: Boolean = false): CliRunResult {
+        val arguments = mutableListOf(command, "analyze", projectBasePath)
+        if (jsonOutput) {
+            arguments.add("--json")
+        }
+
+        val process = ProcessBuilder(arguments)
             .directory(File(projectBasePath))
             .start()
 

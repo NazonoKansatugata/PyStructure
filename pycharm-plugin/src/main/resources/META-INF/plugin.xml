@@ -7,6 +7,13 @@
 
     <notificationGroup id="PyStructure" displayType="BALLOON" isLogByDefault="true"/>
 
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable
+                id="pystructure.settings"
+                instance="com.pystructure.PyStructureSettingsConfigurable"
+                displayName="PyStructure"/>
+    </extensions>
+
     <actions>
         <action id="PyStructure.AnalyzeProject"
                 class="com.pystructure.PyStructureAnalyzeAction"

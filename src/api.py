@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from analyzer import ProjectAnalyzer
+from exporter import JsonExporter
 from graph import DependencyGraph
 from models import AnalysisResult
 
@@ -15,10 +16,7 @@ class AnalysisBundle:
     graph: DependencyGraph
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "analysis": self.analysis.to_dict(),
-            "graph": self.graph.to_dict(),
-        }
+        return JsonExporter().payload(self.analysis, self.graph)
 
 
 def analyze_project(root: Path) -> AnalysisBundle:

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
 from api import analyze_project
+from exporter import GraphvizExporter, JsonExporter, TextExporter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -14,6 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyze_parser = subparsers.add_parser("analyze", help="Analyze a Python project.")
     analyze_parser.add_argument("path", type=Path, help="Root directory to analyze")
     analyze_parser.add_argument("--json", action="store_true", help="Output JSON")
+    analyze_parser.add_argument("--graphviz", action="store_true", help="Output Graphviz DOT")
 
     return parser
 
@@ -26,12 +27,11 @@ def main(argv: list[str] | None = None) -> int:
         bundle = analyze_project(args.path)
 
         if args.json:
-            print(json.dumps(bundle.to_dict(), ensure_ascii=False, indent=2))
+            print(JsonExporter().export(bundle.analysis, bundle.graph))
+        elif args.graphviz:
+            print(GraphvizExporter().export(bundle.analysis, bundle.graph))
         else:
-            print(f"Root: {bundle.analysis.root}")
-            print(f"Modules: {len(bundle.analysis.modules)}")
-            print(f"Nodes: {len(bundle.graph.nodes)}")
-            print(f"Edges: {len(bundle.graph.edges)}")
+            print(TextExporter().export(bundle.analysis, bundle.graph))
         return 0
 
     parser.error("Unknown command")

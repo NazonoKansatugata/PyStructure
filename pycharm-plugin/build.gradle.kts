@@ -18,13 +18,12 @@ intellij {
 }
 
 dependencies {
-    implementation(kotlin("stdlib"))
 }
 
 tasks {
     patchPluginXml {
-        sinceBuild.set("242")
-        untilBuild.set("243.*")
+        sinceBuild.set("241")
+        untilBuild.set("241.*")
     }
 
     withType<KotlinCompile> {

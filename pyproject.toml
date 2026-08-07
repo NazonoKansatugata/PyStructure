@@ -16,4 +16,4 @@ pystructure = "cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-py-modules = ["analyzer", "api", "cli", "graph", "import_resolver", "models", "scanner"]
+py-modules = ["analyzer", "api", "call_analyzer", "cli", "exporter", "graph", "import_resolver", "models", "scanner"]

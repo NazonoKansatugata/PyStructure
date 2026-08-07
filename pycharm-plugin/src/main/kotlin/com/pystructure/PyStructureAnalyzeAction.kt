@@ -20,8 +20,10 @@ class PyStructureAnalyzeAction : AnAction(), DumbAware {
             return
         }
 
+        val command = PyStructureSettings.getInstance().settingsState.cliCommand.trim().ifBlank { "pystructure" }
+
         ApplicationManager.getApplication().executeOnPooledThread {
-            val result = PyStructureCliRunner.run(basePath)
+            val result = PyStructureCliRunner.run(basePath, command, jsonOutput = false)
             val outputService = PyStructureOutputService.getInstance(project)
 
             ApplicationManager.getApplication().invokeLater {
@@ -29,6 +31,7 @@ class PyStructureAnalyzeAction : AnAction(), DumbAware {
                     val text = buildString {
                         appendLine("PyStructure analysis completed")
                         appendLine("Project: $basePath")
+                        appendLine("Command: $command")
                         appendLine("stdout:")
                         appendLine(result.stdout.ifBlank { "(empty)" })
                     }
@@ -45,6 +48,7 @@ class PyStructureAnalyzeAction : AnAction(), DumbAware {
                     val text = buildString {
                         appendLine("PyStructure analysis failed")
                         appendLine("Project: $basePath")
+                        appendLine("Command: $command")
                         appendLine("Exit code: ${result.exitCode}")
                         appendLine("stderr:")
                         appendLine(result.stderr.ifBlank { "(empty)" })

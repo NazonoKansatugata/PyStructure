@@ -83,6 +83,9 @@ class GraphBuilder:
                     if not target:
                         continue
                     graph.add_edge(GraphEdge(source=module_id, target=target, kind="imports"))
+            for call_info in module.calls:
+                target = call_info.resolved_callee or call_info.callee
+                graph.add_edge(GraphEdge(source=call_info.caller, target=target, kind="calls"))
         return graph
 
     def _module_node_id(self, module_name: str) -> str:
