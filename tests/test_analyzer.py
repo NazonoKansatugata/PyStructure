@@ -17,7 +17,7 @@ class AnalyzerTests(unittest.TestCase):
             (root / "package").mkdir()
             (root / "package" / "__init__.py").write_text("from .module import Example\n", encoding="utf-8")
             (root / "package" / "module.py").write_text(
-                "import os\nfrom .submodule import helper\nfrom .submodule import helper as helper_alias\n\nclass Example:\n    def run(self):\n        return helper()\n\ndef top_level():\n    return os.name\n\ndef aliased():\n    return helper_alias()\n",
+                "import os\nfrom .submodule import helper\nfrom .submodule import helper as helper_alias\n\nclass Example:\n    def run(self):\n        return helper()\n\n    def via_self(self):\n        return self.run()\n\n    @classmethod\n    def via_cls(cls):\n        return cls.run()\n\ndef top_level():\n    return os.name\n\ndef aliased():\n    return helper_alias()\n",
                 encoding="utf-8",
             )
             (root / "package" / "submodule.py").write_text(
@@ -37,9 +37,20 @@ class AnalyzerTests(unittest.TestCase):
             self.assertEqual([item.name for item in module.functions], ["top_level", "aliased"])
             self.assertEqual(module.imports[0].module, None)
             self.assertEqual(module.imports[1].module, "package.submodule")
-            self.assertEqual([call.caller for call in module.calls], ["package.module::Example::run", "package.module::aliased"])
-            self.assertEqual([call.callee for call in module.calls], ["helper", "helper_alias"])
-            self.assertEqual([call.resolved_callee for call in module.calls], ["package.submodule.helper", "package.submodule.helper"])
+            self.assertEqual(
+                [call.caller for call in module.calls],
+                ["package.module::Example::run", "package.module::Example::via_self", "package.module::Example::via_cls", "package.module::aliased"],
+            )
+            self.assertEqual([call.callee for call in module.calls], ["helper", "self.run", "cls.run", "helper_alias"])
+            self.assertEqual(
+                [call.resolved_callee for call in module.calls],
+                [
+                    "package.submodule.helper",
+                    "package.module::Example::run",
+                    "package.module::Example::run",
+                    "package.submodule.helper",
+                ],
+            )
             self.assertEqual(module.imports[2].bindings[0].asname, "helper_alias")
 
             package_init = next(item for item in result.modules if item.module_name == "package")
