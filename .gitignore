@@ -15,3 +15,12 @@ dist/
 *.egg-info/
 *.whl
 Code-Grimoire/
+vscode-extension/node_modules/
+vscode-extension/out/
+vscode-extension/.vscode-test/
+pycharm-plugin/.gradle/
+pycharm-plugin/.idea/
+pycharm-plugin/out/
+pycharm-plugin/compile*.txt
+pycharm-plugin/compile.log
+pycharm-plugin/compile.out

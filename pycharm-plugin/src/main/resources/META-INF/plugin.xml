@@ -1,0 +1,31 @@
+<idea-plugin>
+    <id>com.pystructure.pycharm</id>
+    <name>PyStructure</name>
+    <vendor email="support@example.com" url="https://example.com">PyStructure</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <notificationGroup id="PyStructure" displayType="BALLOON" isLogByDefault="true"/>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable
+                id="pystructure.settings"
+                instance="com.pystructure.PyStructureSettingsConfigurable"
+                displayName="PyStructure"/>
+    </extensions>
+
+    <actions>
+        <action id="PyStructure.AnalyzeProject"
+                class="com.pystructure.PyStructureAnalyzeAction"
+                text="Analyze with PyStructure"
+                description="Run the PyStructure CLI for the current project">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+
+    <toolWindow id="PyStructure"
+                anchor="right"
+                factoryClass="com.pystructure.PyStructureToolWindowFactory"
+                stripeTitle="PyStructure"
+                canCloseContents="false"/>
+</idea-plugin>
