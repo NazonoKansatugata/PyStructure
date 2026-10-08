@@ -12,6 +12,7 @@
   ],
   "activationEvents": [
     "onCommand:pystructure.analyzeWorkspace",
+    "onCommand:pystructure.showGraph",
     "onView:pystructureResults"
   ],
   "main": "./out/extension.js",
@@ -28,12 +29,17 @@
       {
         "command": "pystructure.analyzeWorkspace",
         "title": "PyStructure: Analyze Workspace"
+      },
+      {
+        "command": "pystructure.showGraph",
+        "title": "PyStructure: Show Dependency Graph"
       }
     ]
   },
   "scripts": {
-    "compile": "tsc -p .",
-    "watch": "tsc -watch -p .",
+    "copy-webview": "node scripts/copy-webview.js",
+    "compile": "npm run copy-webview && tsc -p .",
+    "watch": "npm run copy-webview && tsc -watch -p .",
     "lint": "tsc -p . --noEmit"
   },
   "devDependencies": {

@@ -1,88 +1,26 @@
-import * as cp from 'node:child_process';
 import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
+import { runPyStructureCli } from './cliRunner';
+import { GraphPanel } from './graphPanel';
 import { CliPayload, ResultsViewProvider } from './resultsView';
-
-type CliError = Error & {
-  stderr?: string;
-  command?: string;
-};
-
-async function runPyStructureCli(scriptPath: string, workspacePath: string): Promise<CliPayload> {
-  const attempts = [
-    { command: 'python', args: [scriptPath, 'analyze', workspacePath, '--json'] },
-    { command: 'python3', args: [scriptPath, 'analyze', workspacePath, '--json'] },
-    { command: 'py', args: ['-3', scriptPath, 'analyze', workspacePath, '--json'] },
-  ];
-  const env = {
-    ...process.env,
-    PYTHONUTF8: '1',
-    PYTHONIOENCODING: 'utf-8',
-  };
-
-  let lastError: CliError | undefined;
-
-  for (const attempt of attempts) {
-    try {
-      const stdout = await new Promise<string>((resolve, reject) => {
-        cp.execFile(
-          attempt.command,
-          attempt.args,
-          { env, maxBuffer: 10 * 1024 * 1024 },
-          (error: Error | null, stdoutText: string, stderrText: string) => {
-            if (error) {
-              const cliError = error as CliError;
-              cliError.stderr = stderrText;
-              cliError.command = `${attempt.command} ${attempt.args.join(' ')}`;
-              reject(cliError);
-              return;
-            }
-
-            resolve(stdoutText);
-          }
-        );
-      });
-
-      return JSON.parse(stdout) as CliPayload;
-    } catch (error) {
-      lastError = error as CliError;
-    }
-  }
-
-  const error: CliError = lastError ?? new Error('PyStructure CLI の起動に失敗しました。');
-  const messageLines = ['PyStructure CLI の起動に失敗しました。'];
-
-  if (error.command) {
-    messageLines.push(`Command: ${error.command}`);
-  }
-
-  if (error.message) {
-    messageLines.push(`Message: ${error.message}`);
-  }
-
-  if (error.stderr) {
-    messageLines.push('stderr:', error.stderr.trim() || '(empty)');
-  }
-
-  throw new Error(messageLines.join('\n'));
-}
 
 export function activate(context: vscode.ExtensionContext): void {
   const outputChannel = vscode.window.createOutputChannel('PyStructure');
   const cliScriptPath = path.resolve(context.extensionPath, '..', 'src', 'cli.py');
+  const graphAssetsRoot = vscode.Uri.file(path.join(context.extensionPath, 'media', 'webview'));
   const resultsProvider = new ResultsViewProvider();
   const resultsView = vscode.window.createTreeView('pystructureResults', {
     treeDataProvider: resultsProvider,
   });
 
-  const disposable = vscode.commands.registerCommand('pystructure.analyzeWorkspace', async () => {
+  const analyze = async (): Promise<CliPayload | undefined> => {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
     if (!workspaceFolder) {
       void vscode.window.showWarningMessage('PyStructure: ワークスペースが開かれていません。');
-      return;
+      return undefined;
     }
 
     outputChannel.show(true);
@@ -94,17 +32,32 @@ export function activate(context: vscode.ExtensionContext): void {
       outputChannel.appendLine(
         `PyStructure: analysis complete (${payload.analysis.modules.length} modules, ${payload.graph.nodes.length} nodes, ${payload.graph.edges.length} edges)`
       );
-      void vscode.window.showInformationMessage(
-        `PyStructure: ${payload.analysis.modules.length} modules, ${payload.graph.nodes.length} nodes, ${payload.graph.edges.length} edges`
-      );
+      return payload;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       outputChannel.appendLine(message);
       void vscode.window.showErrorMessage(`PyStructure: CLI の実行に失敗しました: ${message}`);
+      return undefined;
+    }
+  };
+
+  const analyzeCommand = vscode.commands.registerCommand('pystructure.analyzeWorkspace', async () => {
+    const payload = await analyze();
+    if (payload) {
+      void vscode.window.showInformationMessage(
+        `PyStructure: ${payload.analysis.modules.length} modules, ${payload.graph.nodes.length} nodes, ${payload.graph.edges.length} edges`
+      );
     }
   });
 
-  context.subscriptions.push(disposable, outputChannel, resultsView);
+  const graphCommand = vscode.commands.registerCommand('pystructure.showGraph', async () => {
+    const payload = await analyze();
+    if (payload) {
+      GraphPanel.show(graphAssetsRoot, payload);
+    }
+  });
+
+  context.subscriptions.push(analyzeCommand, graphCommand, outputChannel, resultsView);
 }
 
 export function deactivate(): void {
