@@ -68,6 +68,25 @@ class CallInfo:
 
 
 @dataclass(frozen=True)
+class UseInfo:
+    # user はグラフのノード ID、name は未解決のドット区切り名。
+    user: str
+    name: str
+    lineno: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "user": self.user,
+            "name": self.name,
+            "lineno": self.lineno,
+        }
+
+
+def module_node_id(module_name: str) -> str:
+    return f"module::{module_name}"
+
+
+@dataclass(frozen=True)
 class ClassInfo:
     name: str
     lineno: int
@@ -84,6 +103,34 @@ class ClassInfo:
 
 
 @dataclass(frozen=True)
+class ModuleMetrics:
+    line_count: int = 0
+    size_bytes: int = 0
+    fan_in: int = 0
+    fan_out: int = 0
+    in_cycle: bool = False
+    is_entry: bool = False
+    # エントリーポイントからの最短 import 距離。到達不能なら None。
+    depth: int | None = None
+
+    @property
+    def unreachable(self) -> bool:
+        return self.depth is None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "line_count": self.line_count,
+            "size_bytes": self.size_bytes,
+            "fan_in": self.fan_in,
+            "fan_out": self.fan_out,
+            "in_cycle": self.in_cycle,
+            "is_entry": self.is_entry,
+            "depth": self.depth,
+            "unreachable": self.unreachable,
+        }
+
+
+@dataclass(frozen=True)
 class ModuleInfo:
     path: Path
     module_name: str
@@ -91,6 +138,9 @@ class ModuleInfo:
     classes: tuple[ClassInfo, ...] = ()
     functions: tuple[FunctionInfo, ...] = ()
     calls: tuple[CallInfo, ...] = ()
+    uses: tuple[UseInfo, ...] = ()
+    has_main_guard: bool = False
+    metrics: ModuleMetrics = field(default_factory=ModuleMetrics)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -100,6 +150,21 @@ class ModuleInfo:
             "classes": [item.to_dict() for item in self.classes],
             "functions": [item.to_dict() for item in self.functions],
             "calls": [item.to_dict() for item in self.calls],
+            "uses": [item.to_dict() for item in self.uses],
+            "has_main_guard": self.has_main_guard,
+            "metrics": self.metrics.to_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class SkippedFile:
+    path: Path
+    reason: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "path": str(self.path),
+            "reason": self.reason,
         }
 
 
@@ -111,9 +176,10 @@ class GraphNode:
     module_name: str
     path: str
     lineno: int | None = None
+    metrics: ModuleMetrics | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "id": self.id,
             "label": self.label,
             "kind": self.kind,
@@ -121,6 +187,9 @@ class GraphNode:
             "path": self.path,
             "lineno": self.lineno,
         }
+        if self.metrics is not None:
+            data["metrics"] = self.metrics.to_dict()
+        return data
 
 
 @dataclass(frozen=True)
@@ -141,9 +210,11 @@ class GraphEdge:
 class AnalysisResult:
     root: Path
     modules: list[ModuleInfo] = field(default_factory=list)
+    skipped: list[SkippedFile] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "root": str(self.root),
             "modules": [module.to_dict() for module in self.modules],
+            "skipped": [item.to_dict() for item in self.skipped],
         }

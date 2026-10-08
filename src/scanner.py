@@ -2,24 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from config import EXCLUDED_DIR_NAMES, EXCLUDED_FILE_PREFIXES
+
 
 class ProjectScanner:
     """Find Python source files and derive module names."""
 
-    excluded_names = {
-        ".git",
-        ".hg",
-        ".mypy_cache",
-        ".pytest_cache",
-        ".ruff_cache",
-        ".tox",
-        ".venv",
-        "build",
-        "dist",
-        "env",
-        "venv",
-        "__pycache__",
-    }
+    excluded_names = EXCLUDED_DIR_NAMES
 
     def scan(self, root: Path) -> list[Path]:
         root = root.resolve()
@@ -40,5 +29,7 @@ class ProjectScanner:
         return ".".join(parts)
 
     def _is_excluded(self, path: Path, root: Path) -> bool:
+        if path.name.startswith(EXCLUDED_FILE_PREFIXES):
+            return True
         relative_parts = path.resolve().relative_to(root).parts
         return any(part in self.excluded_names for part in relative_parts)
