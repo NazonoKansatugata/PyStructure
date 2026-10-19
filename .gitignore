@@ -18,6 +18,8 @@ Code-Grimoire/
 vscode-extension/node_modules/
 vscode-extension/out/
 vscode-extension/media/
+vscode-extension/python/
+vscode-extension/*.vsix
 vscode-extension/.vscode-test/
 pycharm-plugin/.gradle/
 pycharm-plugin/.idea/

@@ -8,7 +8,7 @@ import { CliPayload, ResultsViewProvider } from './resultsView';
 
 export function activate(context: vscode.ExtensionContext): void {
   const outputChannel = vscode.window.createOutputChannel('PyStructure');
-  const cliScriptPath = path.resolve(context.extensionPath, '..', 'src', 'cli.py');
+  const cliScriptPath = path.join(context.extensionPath, 'python', 'cli.py');
   const graphAssetsRoot = vscode.Uri.file(path.join(context.extensionPath, 'media', 'webview'));
   const resultsProvider = new ResultsViewProvider();
   const resultsView = vscode.window.createTreeView('pystructureResults', {

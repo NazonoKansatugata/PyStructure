@@ -4,6 +4,10 @@
   "description": "VS Code extension scaffold for the PyStructure analyzer.",
   "version": "0.1.0",
   "publisher": "pystructure",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NazonoKansatugata/PyStructure.git"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -37,14 +41,17 @@
     ]
   },
   "scripts": {
-    "copy-webview": "node scripts/copy-webview.js",
-    "compile": "npm run copy-webview && tsc -p .",
-    "watch": "npm run copy-webview && tsc -watch -p .",
-    "lint": "tsc -p . --noEmit"
+    "prepare-assets": "node scripts/copy-assets.js",
+    "compile": "npm run prepare-assets && tsc -p .",
+    "watch": "npm run prepare-assets && tsc -watch -p .",
+    "lint": "tsc -p . --noEmit",
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package --skip-license"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "@types/vscode": "^1.90.0",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "@vscode/vsce": "^3.2.2"
   }
 }
