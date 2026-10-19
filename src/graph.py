@@ -93,7 +93,7 @@ class GraphBuilder:
         for module in modules:
             module_id = module_node_id(module.module_name)
             for import_info in module.imports:
-                for written, internal in resolver.import_targets(import_info):
+                for written, internal in resolver.import_targets(import_info, module.module_name):
                     if not internal:
                         external_id = self._add_external(graph, written)
                         graph.add_edge(GraphEdge(source=module_id, target=external_id, kind="imports"))

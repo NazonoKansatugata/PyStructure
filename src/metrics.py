@@ -45,7 +45,7 @@ class MetricsAnalyzer:
     def _internal_dependencies(self, module: ModuleInfo, resolver: SymbolResolver) -> set[str]:
         targets: set[str] = set()
         for import_info in module.imports:
-            for _, internal in resolver.import_targets(import_info):
+            for _, internal in resolver.import_targets(import_info, module.module_name):
                 targets.update(name for name in internal if name != module.module_name)
         return targets
 

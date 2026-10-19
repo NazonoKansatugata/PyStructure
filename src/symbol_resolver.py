@@ -12,6 +12,12 @@ class SymbolResolver:
     def __init__(self, modules: list[ModuleInfo]) -> None:
         resolver = ImportResolver()
         self._modules = {module.module_name for module in modules}
+        self._packages = {
+            module.module_name: module.module_name
+            if module.path.name == "__init__.py"
+            else module.module_name.rpartition(".")[0]
+            for module in modules
+        }
         self._functions = {module.module_name: {item.name for item in module.functions} for module in modules}
         self._classes = {
             module.module_name: {item.name: {method.name for method in item.methods} for item in module.classes}
@@ -28,9 +34,9 @@ class SymbolResolver:
         target = self._import_maps.get(module_name, {}).get(parts[0])
         if target is None:
             return None
-        return self._resolve_absolute(target.split(".") + parts[1:], 0)
+        return self._resolve_absolute(target.split(".") + parts[1:], 0, module_name)
 
-    def import_targets(self, import_info: ImportInfo) -> list[tuple[str, list[str]]]:
+    def import_targets(self, import_info: ImportInfo, importer: str) -> list[tuple[str, list[str]]]:
         """Return (name as written, project modules it resolves to) for each imported group."""
         if import_info.module:
             groups = [[import_info.module, *(f"{import_info.module}.{name}" for name in import_info.names)]]
@@ -41,9 +47,9 @@ class SymbolResolver:
         for group in groups:
             internal: list[str] = []
             for candidate in group:
-                module = self._longest_known_module(candidate)
-                if module is not None and module not in internal:
-                    internal.append(module)
+                found = self._find_module(candidate.split("."), importer)
+                if found is not None and found[0] not in internal:
+                    internal.append(found[0])
             targets.append((group[0], internal))
         return targets
 
@@ -55,12 +61,19 @@ class SymbolResolver:
             return dotted
         return f"{target}.{rest}" if rest else target
 
-    def _longest_known_module(self, dotted: str) -> str | None:
-        parts = dotted.split(".")
-        for length in range(len(parts), 0, -1):
-            candidate = ".".join(parts[:length])
-            if candidate in self._modules:
-                return candidate
+    def _find_module(self, parts: list[str], importer: str) -> tuple[str, int] | None:
+        """Return (project module, parts consumed) for the longest module prefix of a dotted name."""
+        package = self._packages.get(importer, "")
+        prefixes: list[list[str]] = []
+        # __init__.py の無いフォルダーはスクリプト置き場として、同じフォルダーの素の名前の import を優先する。
+        if package and package not in self._modules:
+            prefixes.append(package.split("."))
+        prefixes.append([])
+        for prefix in prefixes:
+            for length in range(len(parts), 0, -1):
+                name = ".".join([*prefix, *parts[:length]])
+                if name in self._modules:
+                    return name, length
         return None
 
     def _resolve_in_module(self, module_name: str, parts: list[str]) -> str | None:
@@ -74,19 +87,18 @@ class SymbolResolver:
             return f"{module_name}::{head}"
         return None
 
-    def _resolve_absolute(self, parts: list[str], depth: int) -> str | None:
-        for length in range(len(parts), 0, -1):
-            module_name = ".".join(parts[:length])
-            if module_name not in self._modules:
-                continue
-            rest = parts[length:]
-            if not rest:
-                return module_node_id(module_name)
-            symbol = self._resolve_in_module(module_name, rest)
-            if symbol is not None:
-                return symbol
-            reexported = self._import_maps[module_name].get(rest[0])
-            if reexported is not None and depth < _MAX_REEXPORT_DEPTH:
-                return self._resolve_absolute(reexported.split(".") + rest[1:], depth + 1)
+    def _resolve_absolute(self, parts: list[str], depth: int, context: str) -> str | None:
+        found = self._find_module(parts, context)
+        if found is None:
+            return None
+        module_name, length = found
+        rest = parts[length:]
+        if not rest:
             return module_node_id(module_name)
-        return None
+        symbol = self._resolve_in_module(module_name, rest)
+        if symbol is not None:
+            return symbol
+        reexported = self._import_maps[module_name].get(rest[0])
+        if reexported is not None and depth < _MAX_REEXPORT_DEPTH:
+            return self._resolve_absolute(reexported.split(".") + rest[1:], depth + 1, module_name)
+        return module_node_id(module_name)
