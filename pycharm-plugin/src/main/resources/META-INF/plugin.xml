@@ -1,9 +1,11 @@
 <idea-plugin>
-    <id>com.pystructure.pycharm</id>
+    <id>com.pystructure</id>
     <name>PyStructure</name>
+    <description>Static Python project analysis and dependency graph visualization for PyCharm.</description>
     <vendor email="support@example.com" url="https://example.com">PyStructure</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.python</depends>
 
     <notificationGroup id="PyStructure" displayType="BALLOON" isLogByDefault="true"/>
 

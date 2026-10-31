@@ -23,6 +23,7 @@ vscode-extension/*.vsix
 vscode-extension/.vscode-test/
 pycharm-plugin/.gradle/
 pycharm-plugin/.idea/
+pycharm-plugin/.intellijPlatform/
 pycharm-plugin/out/
 pycharm-plugin/compile*.txt
 pycharm-plugin/compile.log

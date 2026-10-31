@@ -4,17 +4,13 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.awt.BorderLayout
-import javax.swing.JSplitPane
+import kotlinx.serialization.json.contentOrNull
 import javax.swing.JTree
-import javax.swing.JPanel
-import javax.swing.JScrollPane
 import javax.swing.JTextArea
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
@@ -27,9 +23,13 @@ class PyStructureOutputService(private val project: Project) {
     @Volatile
     private var statusArea: JTextArea? = null
 
-    fun attach(tree: JTree, status: JTextArea) {
+    @Volatile
+    private var graphPanel: DependencyGraphPanel? = null
+
+    fun attach(tree: JTree, status: JTextArea, graph: DependencyGraphPanel) {
         treeModel = tree.model as DefaultTreeModel
         statusArea = status
+        graphPanel = graph
     }
 
     fun showJson(stdout: String, projectBasePath: String, command: String) {
@@ -60,6 +60,27 @@ class PyStructureOutputService(private val project: Project) {
         val payload = json.parseToJsonElement(stdout).jsonObject
         val analysis = payload["analysis"]?.jsonObject ?: JsonObject(emptyMap())
         val graph = payload["graph"]?.jsonObject ?: JsonObject(emptyMap())
+        val graphNodes = graph["nodes"]?.jsonArray.orEmpty().mapNotNull { element ->
+            val node = element.jsonObject
+            if (node["kind"]?.jsonPrimitive?.contentOrNull != "module") return@mapNotNull null
+            val metrics = node["metrics"]?.jsonObject
+            DependencyGraphNode(
+                id = node["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null,
+                label = node["label"]?.jsonPrimitive?.contentOrNull ?: "(module)",
+                path = node["path"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                inCycle = metrics?.get("in_cycle")?.jsonPrimitive?.booleanOrNull ?: false,
+                unreachable = metrics?.get("unreachable")?.jsonPrimitive?.booleanOrNull ?: false,
+                isEntry = metrics?.get("is_entry")?.jsonPrimitive?.booleanOrNull ?: false,
+            )
+        }
+        val graphEdges = graph["edges"]?.jsonArray.orEmpty().mapNotNull { element ->
+            val edge = element.jsonObject
+            if (edge["kind"]?.jsonPrimitive?.contentOrNull != "imports") return@mapNotNull null
+            val source = edge["source"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val target = edge["target"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            DependencyGraphEdge(source, target)
+        }
+        graphPanel?.setGraph(graphNodes, graphEdges)
 
         val root = DefaultMutableTreeNode("PyStructure analysis completed")
         root.add(DefaultMutableTreeNode("Project: $projectBasePath"))
