@@ -6,6 +6,7 @@ import com.intellij.openapi.project.Project
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -71,6 +72,11 @@ class PyStructureOutputService(private val project: Project) {
                 inCycle = metrics?.get("in_cycle")?.jsonPrimitive?.booleanOrNull ?: false,
                 unreachable = metrics?.get("unreachable")?.jsonPrimitive?.booleanOrNull ?: false,
                 isEntry = metrics?.get("is_entry")?.jsonPrimitive?.booleanOrNull ?: false,
+                lineCount = metrics?.get("line_count")?.jsonPrimitive?.intOrNull ?: 0,
+                sizeBytes = metrics?.get("size_bytes")?.jsonPrimitive?.intOrNull ?: 0,
+                fanIn = metrics?.get("fan_in")?.jsonPrimitive?.intOrNull ?: 0,
+                fanOut = metrics?.get("fan_out")?.jsonPrimitive?.intOrNull ?: 0,
+                depth = metrics?.get("depth")?.jsonPrimitive?.intOrNull,
             )
         }
         val graphEdges = graph["edges"]?.jsonArray.orEmpty().mapNotNull { element ->

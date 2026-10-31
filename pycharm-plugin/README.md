@@ -7,7 +7,7 @@ PyStructure の解析結果を PyCharm から確認するプラグインです�
 - Tools メニューから実行できる `Analyze with PyStructure` アクション
 - PyStructure CLI を `pystructure analyze <project> --json` で呼び出す実装
 - Tool Window の解析結果ツリーと依存グラフ
-- グラフの検索、ズーム、パン、ノード移動、ファイルを開く操作
+- グラフの検索、ズーム、パン、ノード移動、隣接関係の強調表示、指標のツールチップ、再配置、ファイルを開く操作
 - 成功/失敗を通知する通知グループ
 
 ## 前提
@@ -21,14 +21,33 @@ PyStructure の解析結果を PyCharm から確認するプラグインです�
 プラグインのビルドや実行には Gradle Wrapper を使います。
 
 ```powershell
+cd pycharm-plugin
 .\gradlew.bat compileKotlin
 .\gradlew.bat runIde
 ```
 
 `platformVersion` は `gradle.properties` で指定します。PyCharmの新しい系列に対応する場合は、対象プラットフォームのバージョンと `build.gradle.kts` の `sinceBuild` / `untilBuild` を合わせて更新してください。
 
+## ビルドとインストール
+
+`pycharm-plugin` ディレクトリで次のコマンドを実行すると、配布用プラグインをビルドできます。
+
+```powershell
+.\gradlew.bat buildPlugin
+```
+
+プラグインパッケージは次の場所に生成されます。
+
+```text
+pycharm-plugin\build\distributions\pystructure-pycharm-0.1.0.zip
+```
+
+PyCharmで **Settings | Plugins** を開き、歯車メニューから **Install Plugin from Disk...** を選択して、生成されたZIPファイルを指定してください。インストール後、PyCharmを再起動します。
+
+このZIPにはプラグイン本体と実行時依存ライブラリが含まれます。ZIPを展開したり、中のJARを個別にインストールしたりする必要はありません。
+
 ## 現在の状態
 
-解析・結果ツリー・import依存グラフを利用できます。グラフにはモジュール間の `imports` エッジを表示し、ノードの色で循環依存、到達不能、エントリーポイントを示します。グラフをダブルクリックすると対応するソースファイルを開きます。
+解析・結果ツリー・import依存グラフを利用できます。グラフにはモジュール間の `imports` エッジを表示し、ノードの色で循環依存、到達不能、エントリーポイントを示します。ノードをクリックすると隣接モジュールと関連するエッジを強調し、ホバーすると行数・サイズ・fan-in/out・深度を確認できます。「Re-layout」でグラフを再配置できます。ノードをダブルクリックすると対応するソースファイルを開きます。
 
 グラフはネイティブな PyCharm UI で描画します。Webview版にあるすべての視覚効果や配置アルゴリズムを共有するものではありません。

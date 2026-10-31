@@ -11,6 +11,7 @@ import java.awt.RenderingHints
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.event.MouseWheelEvent
+import java.awt.event.MouseMotionAdapter
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
@@ -18,6 +19,7 @@ import javax.swing.JTextField
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
+import kotlin.random.Random
 
 data class DependencyGraphNode(
     val id: String,
@@ -26,6 +28,11 @@ data class DependencyGraphNode(
     val inCycle: Boolean,
     val unreachable: Boolean,
     val isEntry: Boolean,
+    val lineCount: Int = 0,
+    val sizeBytes: Int = 0,
+    val fanIn: Int = 0,
+    val fanOut: Int = 0,
+    val depth: Int? = null,
 )
 
 data class DependencyGraphEdge(val source: String, val target: String)
@@ -77,6 +84,9 @@ private class GraphCanvas(
     private var offsetY = 0.0
     private var fitPending = false
     private var draggedNode: PositionedNode? = null
+    private var selectedNodeId: String? = null
+    private var hoveredNodeId: String? = null
+    private var neighbors = emptyMap<String, Set<String>>()
     private var lastMouseX = 0
     private var lastMouseY = 0
     private var panning = false
@@ -85,6 +95,7 @@ private class GraphCanvas(
         background = Color(0x1E, 0x1E, 0x1E)
         preferredSize = Dimension(640, 480)
         isFocusable = true
+        toolTipText = ""
         addComponentListener(object : java.awt.event.ComponentAdapter() {
             override fun componentResized(event: java.awt.event.ComponentEvent) {
                 if (fitPending) fitGraph()
@@ -105,12 +116,16 @@ private class GraphCanvas(
             }
 
             override fun mouseClicked(event: MouseEvent) {
+                val node = findNodeAt(event.x, event.y)
                 if (event.clickCount == 2) {
-                    findNodeAt(event.x, event.y)?.data?.path?.takeIf(String::isNotBlank)?.let(openFile)
+                    node?.data?.path?.takeIf(String::isNotBlank)?.let(openFile)
+                } else {
+                    selectedNodeId = node?.data?.id?.takeIf { it != selectedNodeId }
+                    repaint()
                 }
             }
         })
-        addMouseMotionListener(object : MouseAdapter() {
+        addMouseMotionListener(object : MouseMotionAdapter() {
             override fun mouseDragged(event: MouseEvent) {
                 val deltaX = event.x - lastMouseX
                 val deltaY = event.y - lastMouseY
@@ -128,7 +143,13 @@ private class GraphCanvas(
             }
 
             override fun mouseMoved(event: MouseEvent) {
-                cursor = if (findNodeAt(event.x, event.y) != null) {
+                val node = findNodeAt(event.x, event.y)
+                val nodeId = node?.data?.id
+                if (hoveredNodeId != nodeId) {
+                    hoveredNodeId = nodeId
+                    repaint()
+                }
+                cursor = if (node != null) {
                     java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
                 } else {
                     java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR)
@@ -147,6 +168,16 @@ private class GraphCanvas(
         }
         val nodeIds = nodes.mapTo(HashSet()) { it.data.id }
         edges = graphEdges.filter { it.source in nodeIds && it.target in nodeIds }
+        neighbors = nodes.associate { node ->
+            node.data.id to buildSet {
+                edges.forEach { edge ->
+                    if (edge.source == node.data.id) add(edge.target)
+                    if (edge.target == node.data.id) add(edge.source)
+                }
+            }
+        }
+        selectedNodeId = null
+        hoveredNodeId = null
         fitPending = true
         if (width > 0 && height > 0) fitGraph()
         repaint()
@@ -158,14 +189,92 @@ private class GraphCanvas(
     }
 
     fun resetLayout() {
-        val graphNodes = nodes.map { it.data }
-        val radius = 35.0 * sqrt(graphNodes.size.toDouble().coerceAtLeast(1.0))
-        nodes.forEachIndexed { index, node ->
-            val angle = index * 2.399963229728653
+        if (nodes.isEmpty()) return
+
+        val random = Random(System.nanoTime())
+        val initialRadius = 45.0 * sqrt(nodes.size.toDouble())
+        nodes.forEach { node ->
+            val angle = random.nextDouble() * 2 * Math.PI
+            val radius = initialRadius * sqrt(random.nextDouble())
             node.x = kotlin.math.cos(angle) * radius
             node.y = kotlin.math.sin(angle) * radius
         }
+
+        if (nodes.size <= MAX_FORCE_LAYOUT_NODES) {
+            runForceLayout()
+        }
         fitGraph()
+    }
+
+    override fun getToolTipText(event: MouseEvent): String? {
+        val node = findNodeAt(event.x, event.y)?.data ?: return null
+        val depth = node.depth?.toString() ?: "unreachable"
+        val state = listOfNotNull(
+            "cycle".takeIf { node.inCycle },
+            "entry point".takeIf { node.isEntry },
+        ).joinToString(", ").ifEmpty { "normal" }
+        return "<html><b>${escapeHtml(node.label)}</b><br>" +
+            "${escapeHtml(node.path)}<br>" +
+            "Lines: ${node.lineCount} &nbsp; Size: ${node.sizeBytes} B<br>" +
+            "Fan-in: ${node.fanIn} &nbsp; Fan-out: ${node.fanOut}<br>" +
+            "Depth: $depth &nbsp; Status: $state</html>"
+    }
+
+    private fun runForceLayout() {
+        val positions = nodes.associate { it.data.id to it }
+        val iterations = 100
+        for (iteration in 0 until iterations) {
+            val forces = nodes.associate { it.data.id to (0.0 to 0.0) }.toMutableMap()
+
+            for (i in nodes.indices) {
+                val first = nodes[i]
+                for (j in i + 1 until nodes.size) {
+                    val second = nodes[j]
+                    var dx = second.x - first.x
+                    var dy = second.y - first.y
+                    var distanceSquared = dx * dx + dy * dy
+                    if (distanceSquared < 0.01) {
+                        dx = 0.1
+                        dy = 0.1
+                        distanceSquared = 0.02
+                    }
+                    val distance = sqrt(distanceSquared)
+                    val force = 1800.0 / distanceSquared
+                    val fx = dx / distance * force
+                    val fy = dy / distance * force
+                    val firstForce = forces.getValue(first.data.id)
+                    val secondForce = forces.getValue(second.data.id)
+                    forces[first.data.id] = (firstForce.first - fx) to (firstForce.second - fy)
+                    forces[second.data.id] = (secondForce.first + fx) to (secondForce.second + fy)
+                }
+            }
+
+            edges.forEach { edge ->
+                val source = positions[edge.source] ?: return@forEach
+                val target = positions[edge.target] ?: return@forEach
+                val dx = target.x - source.x
+                val dy = target.y - source.y
+                val distance = sqrt(dx * dx + dy * dy).coerceAtLeast(0.01)
+                val force = (distance - LINK_DISTANCE) * 0.018
+                val fx = dx / distance * force
+                val fy = dy / distance * force
+                val sourceForce = forces.getValue(source.data.id)
+                val targetForce = forces.getValue(target.data.id)
+                forces[source.data.id] = (sourceForce.first + fx) to (sourceForce.second + fy)
+                forces[target.data.id] = (targetForce.first - fx) to (targetForce.second - fy)
+            }
+
+            val temperature = 6.0 * (1.0 - iteration.toDouble() / iterations) + 0.15
+            nodes.forEach { node ->
+                val (forceX, forceY) = forces.getValue(node.data.id)
+                val movementX = forceX - node.x * 0.004
+                val movementY = forceY - node.y * 0.004
+                val movement = sqrt(movementX * movementX + movementY * movementY)
+                val scale = if (movement > temperature) temperature / movement else 1.0
+                node.x += movementX * scale
+                node.y += movementY * scale
+            }
+        }
     }
 
     fun fitGraph() {
@@ -189,15 +298,22 @@ private class GraphCanvas(
         val visibleNodes = nodes.filter { matchesFilter(it.data) }
         val visibleIds = visibleNodes.mapTo(HashSet()) { it.data.id }
         val byId = nodes.associateBy { it.data.id }
+        val selected = selectedNodeId
+        val activeIds = selected?.let { setOf(it) + neighbors[it].orEmpty() }
 
-        g.stroke = BasicStroke(1.2f)
         edges.forEach { edge ->
             if (edge.source !in visibleIds || edge.target !in visibleIds) return@forEach
             val source = byId[edge.source] ?: return@forEach
             val target = byId[edge.target] ?: return@forEach
             val start = screenPoint(source)
             val end = screenPoint(target)
-            g.color = Color(0x68, 0x75, 0x82, 150)
+            val isSelectedEdge = edge.source == selected || edge.target == selected
+            g.stroke = BasicStroke(if (isSelectedEdge) 2.5f else 1.2f)
+            g.color = when {
+                selected == null -> Color(0x68, 0x75, 0x82, 150)
+                isSelectedEdge -> Color(0xF0, 0xB4, 0x29, 230)
+                else -> Color(0x68, 0x75, 0x82, 25)
+            }
             g.drawLine(start.first, start.second, end.first, end.second)
             drawArrow(g, start.first, start.second, end.first, end.second)
         }
@@ -205,11 +321,19 @@ private class GraphCanvas(
         visibleNodes.forEach { node ->
             val (x, y) = screenPoint(node)
             val radius = max(6, (NODE_RADIUS * scale).toInt())
-            g.color = nodeColor(node.data)
+            val isSelected = node.data.id == selected
+            val isActive = activeIds == null || node.data.id in activeIds
+            g.color = nodeColor(node.data, if (isActive) 255 else 45)
             g.fillOval(x - radius, y - radius, radius * 2, radius * 2)
-            g.color = Color(0xF0, 0xF0, 0xF0)
+            g.color = when {
+                isSelected -> Color(0xFF, 0xFF, 0xFF)
+                node.data.id == hoveredNodeId -> Color(0xF0, 0xB4, 0x29)
+                else -> Color(0xF0, 0xF0, 0xF0, if (isActive) 220 else 45)
+            }
+            g.stroke = BasicStroke(if (isSelected) 3.0f else 1.0f)
             g.drawOval(x - radius, y - radius, radius * 2, radius * 2)
             g.font = Font(Font.SANS_SERIF, Font.PLAIN, 12)
+            g.color = Color(0xF0, 0xF0, 0xF0, if (isActive) 230 else 45)
             g.drawString(node.data.label, x + radius + 5, y + 4)
         }
 
@@ -225,12 +349,15 @@ private class GraphCanvas(
     private fun matchesFilter(node: DependencyGraphNode): Boolean =
         filter.isEmpty() || node.label.lowercase().contains(filter) || node.path.lowercase().contains(filter)
 
-    private fun nodeColor(node: DependencyGraphNode): Color = when {
-        node.inCycle -> Color(0xE5, 0x53, 0x4B)
-        node.unreachable -> Color(0x8B, 0x94, 0x9E)
-        node.isEntry -> Color(0xF0, 0xB4, 0x29)
-        else -> Color(0x4C, 0x8D, 0xFF)
+    private fun nodeColor(node: DependencyGraphNode, alpha: Int): Color = when {
+        node.inCycle -> Color(0xE5, 0x53, 0x4B, alpha)
+        node.unreachable -> Color(0x8B, 0x94, 0x9E, alpha)
+        node.isEntry -> Color(0xF0, 0xB4, 0x29, alpha)
+        else -> Color(0x4C, 0x8D, 0xFF, alpha)
     }
+
+    private fun escapeHtml(value: String): String =
+        value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     private fun screenPoint(node: PositionedNode): Pair<Int, Int> =
         (width / 2.0 + offsetX + node.x * scale).toInt() to
@@ -273,5 +400,7 @@ private class GraphCanvas(
 
     companion object {
         private const val NODE_RADIUS = 12.0
+        private const val LINK_DISTANCE = 85.0
+        private const val MAX_FORCE_LAYOUT_NODES = 250
     }
 }
