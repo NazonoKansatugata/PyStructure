@@ -12,6 +12,24 @@
 - import 解決は `src/import_resolver.py` です
 - グラフ構築は `src/graph.py` です
 - 共通モデルは `src/models.py` です
+- メトリクス（fan_in/fan_out、循環、エントリーポイント、depth）は `src/metrics.py` です
+- 助言生成は `src/advisor.py` です（ルール: 循環参照、依存集中、巨大モジュール、到達不能、読み進め方）
+- 出力は `src/exporter.py` です（テキスト、JSON、Graphviz、Markdown）
+- 除外設定（`.pystructure.json`）の読み込みは `src/settings.py`、既定値と閾値は `src/config.py` です
+- 公開 API は `src/api.py` です
+
+## 助言機能
+
+- 解析結果（事実）と助言を分離したルールベース実装です
+- 助言は `rule_id`、`severity`、`title`、`reason`、`suggestions`、`targets`、`evidence` を持ちます
+- 助言は目安であり、必ず修正が必要という意味ではありません
+- VS Code 拡張と PyCharm プラグインは、CLI の JSON 出力の `advice` を表示し、Markdown 保存に対応しています
+
+## 配布物
+
+- VS Code 拡張: `vscode-extension/`（`.vsix`）
+- PyCharm プラグイン: `pycharm-plugin/`（`.zip`、PyCharm 2026.2 系向け）
+- 現在のバージョン: 0.3.0
 
 ## 挙動
 

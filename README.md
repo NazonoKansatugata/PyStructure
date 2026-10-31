@@ -19,6 +19,10 @@ Python ソースを `ast` で解析し、次の情報を抽出します。
 - `src/import_resolver.py`: import の正規化と解決
 - `src/graph.py`: 依存グラフの構築とシリアライズ
 - `src/models.py`: 共通データクラス
+- `src/metrics.py`: メトリクスと循環検出
+- `src/advisor.py`: 解析結果に基づく助言（ルールベース）
+- `src/exporter.py`: テキスト / JSON / Graphviz / Markdown 出力
+- `src/settings.py`: 除外設定（`.pystructure.json`）の読み込み
 
 現時点では `src/` 配下にパッケージディレクトリは置いていません。コアがまだ小さいうちは、この方が全体を見通しやすいためです。
 
@@ -74,6 +78,6 @@ python -m unittest discover -s tests
 
 ## 補足
 
-このリポジトリは、現時点では解析コアのひな形のみを含みます。ソースは見通しを重視して `src/` 直下にフラット配置しており、`build/`、`dist/`、`*.egg-info/` などの生成物は `.gitignore` で除外しています。
+このリポジトリは、解析コア（`src/`）、VS Code 拡張（`vscode-extension/`）、PyCharm プラグイン（`pycharm-plugin/`）で構成されます。ソースは見通しを重視して `src/` 直下にフラット配置しており、`build/`、`dist/`、`*.egg-info/` などの生成物は `.gitignore` で除外しています。
 
-PyCharm 連携は、この解析コアの上に後から追加できます。
+各 IDE の導入方法は、それぞれの README を参照してください。
