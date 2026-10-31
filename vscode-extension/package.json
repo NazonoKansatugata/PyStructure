@@ -34,11 +34,23 @@
         "title": "PyStructure: Analyze Workspace"
       },
       {
+        "command": "pystructure.exportAdviceMarkdown",
+        "title": "PyStructure: Export Advice as Markdown",
+        "icon": "$(save)"
+      },
+      {
         "command": "pystructure.highlightAdvice",
         "title": "PyStructure: Highlight Advice Targets in Graph"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "pystructure.exportAdviceMarkdown",
+          "when": "view == pystructureResults",
+          "group": "navigation"
+        }
+      ],
       "commandPalette": [
         {
           "command": "pystructure.highlightAdvice",

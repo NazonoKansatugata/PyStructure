@@ -27,5 +27,12 @@
                 description="Run the PyStructure CLI for the current project">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
+        <action id="PyStructure.ExportAdvice"
+                class="com.pystructure.PyStructureExportAdviceAction"
+                text="Export PyStructure Advice as Markdown"
+                description="Save the PyStructure advice as a Markdown file"
+                icon="AllIcons.Actions.MenuSaveall">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
     </actions>
 </idea-plugin>

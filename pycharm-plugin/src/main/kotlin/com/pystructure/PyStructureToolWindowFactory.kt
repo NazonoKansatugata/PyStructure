@@ -75,5 +75,7 @@ class PyStructureToolWindowFactory : ToolWindowFactory, DumbAware {
 
         val content = ContentFactory.getInstance().createContent(panel, null, false)
         toolWindow.contentManager.addContent(content)
+        com.intellij.openapi.actionSystem.ActionManager.getInstance().getAction("PyStructure.ExportAdvice")
+            ?.let { toolWindow.setTitleActions(listOf(it)) }
     }
 }
