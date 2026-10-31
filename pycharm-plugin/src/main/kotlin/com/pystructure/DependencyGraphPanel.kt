@@ -13,6 +13,7 @@ import java.awt.event.MouseEvent
 import java.awt.event.MouseWheelEvent
 import java.awt.event.MouseMotionAdapter
 import javax.swing.JButton
+import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTextField
@@ -37,19 +38,44 @@ data class DependencyGraphNode(
 
 data class DependencyGraphEdge(val source: String, val target: String)
 
+enum class ColorMode(private val label: String, val legend: String) {
+    STATUS("Color: status", "Module: blue  Cycle: red  Unreachable: gray  Entry: yellow ring"),
+    PACKAGE("Color: package", "Top-level package (hue)  Entry: yellow ring"),
+    DEPTH("Color: depth", "Near entry: light  Deep: dark  Unreachable: gray  Entry: yellow ring");
+
+    override fun toString(): String = label
+}
+
 class DependencyGraphPanel(
     private val openFile: (String) -> Unit,
 ) : JPanel(BorderLayout()) {
     private val searchField = JTextField()
     private val canvas = GraphCanvas(openFile)
+    private val legendLabel = JLabel()
+    private val colorSelect = JComboBox(ColorMode.entries.toTypedArray())
 
     init {
         val toolbar = JPanel().apply {
             add(searchField)
+            add(colorSelect)
             add(JButton("Fit").apply { addActionListener { canvas.fitGraph() } })
             add(JButton("Re-layout").apply { addActionListener { canvas.resetLayout() } })
-            add(JLabel("Cycle: red  Unreachable: gray  Entry: yellow  Module: blue"))
+            add(legendLabel)
         }
+        colorSelect.addActionListener {
+            val mode = colorSelect.selectedItem as ColorMode
+            canvas.setColorMode(mode)
+            legendLabel.text = mode.legend
+        }
+        legendLabel.text = ColorMode.STATUS.legend
+        canvas.addKeyListener(object : java.awt.event.KeyAdapter() {
+            override fun keyPressed(event: java.awt.event.KeyEvent) {
+                if (event.keyCode == java.awt.event.KeyEvent.VK_ESCAPE) {
+                    searchField.text = ""
+                    canvas.clearSelection()
+                }
+            }
+        })
         searchField.columns = 24
         searchField.toolTipText = "Search modules"
         searchField.document.addDocumentListener(object : javax.swing.event.DocumentListener {
@@ -79,6 +105,7 @@ private class GraphCanvas(
     private val nodes = mutableListOf<PositionedNode>()
     private var edges = emptyList<DependencyGraphEdge>()
     private var filter = ""
+    private var colorMode = ColorMode.STATUS
     private var scale = 1.0
     private var offsetX = 0.0
     private var offsetY = 0.0
@@ -188,6 +215,16 @@ private class GraphCanvas(
         repaint()
     }
 
+    fun setColorMode(mode: ColorMode) {
+        colorMode = mode
+        repaint()
+    }
+
+    fun clearSelection() {
+        selectedNodeId = null
+        repaint()
+    }
+
     fun resetLayout() {
         if (nodes.isEmpty()) return
 
@@ -284,7 +321,7 @@ private class GraphCanvas(
         }
         val extentX = nodes.maxOf { kotlin.math.abs(it.x) } + NODE_RADIUS
         val extentY = nodes.maxOf { kotlin.math.abs(it.y) } + NODE_RADIUS
-        scale = min((width - 48.0) / (extentX * 2), (height - 48.0) / (extentY * 2)).coerceIn(0.1, 3.0)
+        scale = min((width - 48.0) / (extentX * 2), (height - 48.0) / (extentY * 2)).coerceIn(0.05, 2.0)
         offsetX = 0.0
         offsetY = 0.0
         fitPending = false
@@ -295,53 +332,68 @@ private class GraphCanvas(
         super.paintComponent(graphics)
         val g = graphics.create() as Graphics2D
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-        val visibleNodes = nodes.filter { matchesFilter(it.data) }
-        val visibleIds = visibleNodes.mapTo(HashSet()) { it.data.id }
+        val visibleNodes = nodes
         val byId = nodes.associateBy { it.data.id }
         val selected = selectedNodeId
-        val activeIds = selected?.let { setOf(it) + neighbors[it].orEmpty() }
+        val activeIds: Set<String>? = when {
+            selected != null -> setOf(selected) + neighbors[selected].orEmpty()
+            filter.isNotEmpty() -> nodes.filter { matchesFilter(it.data) }.mapTo(HashSet()) { it.data.id }
+            else -> null
+        }
 
         edges.forEach { edge ->
-            if (edge.source !in visibleIds || edge.target !in visibleIds) return@forEach
             val source = byId[edge.source] ?: return@forEach
             val target = byId[edge.target] ?: return@forEach
             val start = screenPoint(source)
             val end = screenPoint(target)
             val isSelectedEdge = edge.source == selected || edge.target == selected
+            val isVisible = when {
+                activeIds == null -> true
+                selected != null -> isSelectedEdge
+                else -> edge.source in activeIds && edge.target in activeIds
+            }
             g.stroke = BasicStroke(if (isSelectedEdge) 2.5f else 1.2f)
             g.color = when {
-                selected == null -> Color(0x68, 0x75, 0x82, 150)
+                !isVisible -> Color(0x68, 0x75, 0x82, 25)
                 isSelectedEdge -> Color(0xF0, 0xB4, 0x29, 230)
-                else -> Color(0x68, 0x75, 0x82, 25)
+                else -> Color(0x68, 0x75, 0x82, 150)
             }
             g.drawLine(start.first, start.second, end.first, end.second)
-            drawArrow(g, start.first, start.second, end.first, end.second)
+            drawArrow(g, start.first, start.second, end.first, end.second, screenRadius(target))
         }
 
+        val showAllLabels = nodes.size <= 80 || scale >= 1.2
+        g.font = Font(Font.SANS_SERIF, Font.PLAIN, 12)
         visibleNodes.forEach { node ->
             val (x, y) = screenPoint(node)
-            val radius = max(6, (NODE_RADIUS * scale).toInt())
+            val radius = screenRadius(node)
             val isSelected = node.data.id == selected
             val isActive = activeIds == null || node.data.id in activeIds
             g.color = nodeColor(node.data, if (isActive) 255 else 45)
             g.fillOval(x - radius, y - radius, radius * 2, radius * 2)
-            g.color = when {
-                isSelected -> Color(0xFF, 0xFF, 0xFF)
-                node.data.id == hoveredNodeId -> Color(0xF0, 0xB4, 0x29)
-                else -> Color(0xF0, 0xF0, 0xF0, if (isActive) 220 else 45)
+            if (node.data.isEntry) {
+                g.color = Color(0xF0, 0xB4, 0x29, if (isActive) 255 else 45)
+                g.stroke = BasicStroke(3.0f)
+                g.drawOval(x - radius, y - radius, radius * 2, radius * 2)
             }
-            g.stroke = BasicStroke(if (isSelected) 3.0f else 1.0f)
-            g.drawOval(x - radius, y - radius, radius * 2, radius * 2)
-            g.font = Font(Font.SANS_SERIF, Font.PLAIN, 12)
-            g.color = Color(0xF0, 0xF0, 0xF0, if (isActive) 230 else 45)
-            g.drawString(node.data.label, x + radius + 5, y + 4)
+            if (isSelected || node.data.id == hoveredNodeId) {
+                g.color = if (isSelected) Color(0xFF, 0xFF, 0xFF) else Color(0xF0, 0xF0, 0xF0)
+                g.stroke = BasicStroke(2.0f)
+                g.drawOval(x - radius, y - radius, radius * 2, radius * 2)
+            }
+            val showLabel = isActive && (showAllLabels || node.data.id == hoveredNodeId || activeIds != null)
+            if (showLabel) {
+                g.color = Color(0xF0, 0xF0, 0xF0, 230)
+                g.drawString(node.data.label, x + radius + 5, y + 4)
+            }
         }
 
         g.color = Color(0xC0, 0xC0, 0xC0)
-        g.drawString("${visibleNodes.size} modules  |  ${edges.count { it.source in visibleIds && it.target in visibleIds }} imports", 12, height - 14)
-        if (visibleNodes.isEmpty()) {
-            g.color = Color(0xC0, 0xC0, 0xC0)
-            g.drawString(if (nodes.isEmpty()) "No modules to display." else "No modules match the search.", 20, 32)
+        val cycles = nodes.count { it.data.inCycle }
+        val unreachable = nodes.count { it.data.unreachable }
+        g.drawString("${nodes.size} modules | ${edges.size} imports | $cycles in cycles | $unreachable unreachable", 12, height - 14)
+        if (nodes.isEmpty()) {
+            g.drawString("No modules to display.", 20, 32)
         }
         g.dispose()
     }
@@ -349,12 +401,49 @@ private class GraphCanvas(
     private fun matchesFilter(node: DependencyGraphNode): Boolean =
         filter.isEmpty() || node.label.lowercase().contains(filter) || node.path.lowercase().contains(filter)
 
-    private fun nodeColor(node: DependencyGraphNode, alpha: Int): Color = when {
-        node.inCycle -> Color(0xE5, 0x53, 0x4B, alpha)
-        node.unreachable -> Color(0x8B, 0x94, 0x9E, alpha)
-        node.isEntry -> Color(0xF0, 0xB4, 0x29, alpha)
-        else -> Color(0x4C, 0x8D, 0xFF, alpha)
+    private fun nodeColor(node: DependencyGraphNode, alpha: Int): Color = when (colorMode) {
+        ColorMode.PACKAGE -> hsl(hueOf(node.label.substringBefore('.')), 0.6, 0.55, alpha)
+        ColorMode.DEPTH -> {
+            val depth = node.depth
+            if (depth == null) {
+                Color(0x8B, 0x94, 0x9E, alpha)
+            } else {
+                hsl(210, 0.7, (72 - min(depth, 8) / 8.0 * 36) / 100.0, alpha)
+            }
+        }
+        ColorMode.STATUS -> when {
+            node.inCycle -> Color(0xE5, 0x53, 0x4B, alpha)
+            node.unreachable -> Color(0x8B, 0x94, 0x9E, alpha)
+            else -> Color(0x4C, 0x8D, 0xFF, alpha)
+        }
     }
+
+    private fun hueOf(text: String): Int {
+        var hash = 0
+        for (ch in text) hash = (hash * 31 + ch.code) % 360
+        return hash
+    }
+
+    private fun hsl(hue: Int, saturation: Double, lightness: Double, alpha: Int): Color {
+        val c = (1 - kotlin.math.abs(2 * lightness - 1)) * saturation
+        val x = c * (1 - kotlin.math.abs((hue / 60.0) % 2 - 1))
+        val m = lightness - c / 2
+        val (r, g, b) = when (hue / 60) {
+            0 -> Triple(c, x, 0.0)
+            1 -> Triple(x, c, 0.0)
+            2 -> Triple(0.0, c, x)
+            3 -> Triple(0.0, x, c)
+            4 -> Triple(x, 0.0, c)
+            else -> Triple(c, 0.0, x)
+        }
+        fun channel(value: Double) = ((value + m) * 255).toInt().coerceIn(0, 255)
+        return Color(channel(r), channel(g), channel(b), alpha)
+    }
+
+    private fun worldRadius(node: PositionedNode): Double =
+        max(6.0, min(26.0, 4 + sqrt(node.data.lineCount.toDouble()) * 0.6))
+
+    private fun screenRadius(node: PositionedNode): Int = max(6, (worldRadius(node) * scale).toInt())
 
     private fun escapeHtml(value: String): String =
         value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -364,9 +453,8 @@ private class GraphCanvas(
             (height / 2.0 + offsetY + node.y * scale).toInt()
 
     private fun findNodeAt(x: Int, y: Int): PositionedNode? {
-        val radius = max(10, (NODE_RADIUS * scale).toInt() + 4)
         return nodes.asReversed().firstOrNull { node ->
-            if (!matchesFilter(node.data)) return@firstOrNull false
+            val radius = screenRadius(node) + 4
             val point = screenPoint(node)
             val dx = x - point.first
             val dy = y - point.second
@@ -376,7 +464,7 @@ private class GraphCanvas(
 
     private fun zoomAt(event: MouseWheelEvent) {
         val oldScale = scale
-        val newScale = (scale * if (event.preciseWheelRotation < 0) 1.1 else 0.9).coerceIn(0.1, 4.0)
+        val newScale = (scale * if (event.preciseWheelRotation < 0) 1.1 else 0.9).coerceIn(0.05, 4.0)
         val centerX = width / 2.0 + offsetX
         val centerY = height / 2.0 + offsetY
         offsetX = event.x - (event.x - centerX) * newScale / oldScale - width / 2.0
@@ -385,10 +473,10 @@ private class GraphCanvas(
         repaint()
     }
 
-    private fun drawArrow(g: Graphics2D, x1: Int, y1: Int, x2: Int, y2: Int) {
+    private fun drawArrow(g: Graphics2D, x1: Int, y1: Int, x2: Int, y2: Int, targetRadius: Int) {
         val angle = kotlin.math.atan2((y2 - y1).toDouble(), (x2 - x1).toDouble())
-        val tipX = x2 - (NODE_RADIUS * scale * kotlin.math.cos(angle)).toInt()
-        val tipY = y2 - (NODE_RADIUS * scale * kotlin.math.sin(angle)).toInt()
+        val tipX = x2 - (targetRadius * kotlin.math.cos(angle)).toInt()
+        val tipY = y2 - (targetRadius * kotlin.math.sin(angle)).toInt()
         val arrowLength = 8.0
         val leftX = tipX - arrowLength * kotlin.math.cos(angle - 0.45)
         val leftY = tipY - arrowLength * kotlin.math.sin(angle - 0.45)

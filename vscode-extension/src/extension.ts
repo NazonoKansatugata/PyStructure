@@ -44,20 +44,14 @@ export function activate(context: vscode.ExtensionContext): void {
   const analyzeCommand = vscode.commands.registerCommand('pystructure.analyzeWorkspace', async () => {
     const payload = await analyze();
     if (payload) {
+      GraphPanel.show(graphAssetsRoot, payload);
       void vscode.window.showInformationMessage(
         `PyStructure: ${payload.analysis.modules.length} modules, ${payload.graph.nodes.length} nodes, ${payload.graph.edges.length} edges`
       );
     }
   });
 
-  const graphCommand = vscode.commands.registerCommand('pystructure.showGraph', async () => {
-    const payload = await analyze();
-    if (payload) {
-      GraphPanel.show(graphAssetsRoot, payload);
-    }
-  });
-
-  context.subscriptions.push(analyzeCommand, graphCommand, outputChannel, resultsView);
+  context.subscriptions.push(analyzeCommand, outputChannel, resultsView);
 }
 
 export function deactivate(): void {

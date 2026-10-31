@@ -57,12 +57,9 @@ code --install-extension .\vscode-extension\pystructure-vscode-0.1.0.vsix --forc
 
 1. 解析したい Python プロジェクトのフォルダーを VS Code で開きます。
 2. `Ctrl+Shift+P`（macOS は `Cmd+Shift+P`）でコマンドパレットを開きます。
-3. 次のいずれかを実行します。
+3. `PyStructure: Analyze Workspace` を実行します。
 
-| コマンド | 表示 |
-| --- | --- |
-| `PyStructure: Analyze Workspace` | Explorer の `PyStructure Results` に解析結果をツリー表示 |
-| `PyStructure: Show Dependency Graph` | モジュールの依存関係をグラフ表示 |
+このコマンド1つで、Explorer の `PyStructure Results` に解析結果をツリー表示し、依存グラフのパネルも開きます。
 
 グラフでは、ノードのドラッグで位置調整、背景ドラッグで移動、ホイールでズームできます。ノードをクリックすると隣接モジュールを強調表示し、ホバーすると行数・依存数・深度などを表示します。ダブルクリックすると対応する Python ファイルを開きます。検索、色分け、`Fit`、`Re-layout` も利用できます。
 
@@ -76,7 +73,7 @@ code --install-extension .\vscode-extension\pystructure-vscode-0.1.0.vsix --forc
 
 - **Python が起動できない**: VS Code を起動した環境から `python --version` または `py -3 --version` が実行できるか確認します。必要なバージョンは Python 3.11 以上です。
 - **解析に失敗する**: VS Code の「出力」ビューで `PyStructure` チャンネルを選び、CLI のエラーと `stderr` を確認します。
-- **グラフが表示されない**: `PyStructure: Show Dependency Graph` を再実行し、`PyStructure` 出力チャンネルに解析エラーがないか確認します。
+- **グラフが表示されない**: `PyStructure: Analyze Workspace` を再実行し、`PyStructure` 出力チャンネルに解析エラーがないか確認します。
 - **起動時に NLS や Node.js の警告が出る**: VS Code 本体由来の警告であれば、それだけで PyStructure の解析失敗を意味するものではありません。上記の出力チャンネルを確認してください。
 
 ## 開発者向け

@@ -17,6 +17,11 @@ import javax.swing.JTextArea
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 
+// ツリーノードの表示名と、ダブルクリックで開くソース位置（line は 1 始まり）
+data class SourceEntry(val label: String, val path: String?, val line: Int?) {
+    override fun toString(): String = label
+}
+
 @Service(Service.Level.PROJECT)
 class PyStructureOutputService(private val project: Project) {
     @Volatile
@@ -108,8 +113,9 @@ class PyStructureOutputService(private val project: Project) {
         val analysisNode = DefaultMutableTreeNode("Analysis")
         analysisNode.add(DefaultMutableTreeNode("Root: ${analysis["root"]?.jsonPrimitive?.contentOrNull ?: "(unknown)"}"))
 
-        val modulesNode = DefaultMutableTreeNode("Modules")
-        analysis["modules"]?.jsonArray?.forEach { moduleElement ->
+        val modules = analysis["modules"]?.jsonArray.orEmpty()
+        val modulesNode = DefaultMutableTreeNode("Modules: ${modules.size}")
+        modules.forEach { moduleElement ->
             modulesNode.add(buildModuleNode(moduleElement.jsonObject))
         }
         analysisNode.add(modulesNode)
@@ -122,10 +128,15 @@ class PyStructureOutputService(private val project: Project) {
 
     private fun buildModuleNode(module: JsonObject): DefaultMutableTreeNode {
         val moduleName = module["module_name"]?.jsonPrimitive?.contentOrNull ?: "(module)"
-        val moduleNode = DefaultMutableTreeNode(moduleName)
+        val path = module["path"]?.jsonPrimitive?.contentOrNull
+        val moduleNode = DefaultMutableTreeNode(SourceEntry(moduleName, path, null))
 
-        val importsNode = DefaultMutableTreeNode("Imports")
-        module["imports"]?.jsonArray?.forEach { importElement ->
+        fun entry(label: String, item: JsonObject) =
+            DefaultMutableTreeNode(SourceEntry(label, path, item["lineno"]?.jsonPrimitive?.intOrNull))
+
+        val imports = module["imports"]?.jsonArray.orEmpty()
+        val importsNode = DefaultMutableTreeNode("Imports: ${imports.size}")
+        imports.forEach { importElement ->
             val importObject = importElement.jsonObject
             val source = importObject["module"]?.jsonPrimitive?.contentOrNull ?: "(absolute)"
             val bindings = importObject["bindings"]?.jsonArray?.joinToString(", ") { bindingElement ->
@@ -134,47 +145,54 @@ class PyStructureOutputService(private val project: Project) {
                 val asname = binding["asname"]?.jsonPrimitive?.contentOrNull
                 if (asname.isNullOrBlank()) name else "$name as $asname"
             }.orEmpty()
-            importsNode.add(DefaultMutableTreeNode("$source: $bindings"))
+            importsNode.add(entry("$source: $bindings${lineSuffix(importObject)}", importObject))
         }
         moduleNode.add(importsNode)
 
-        val classesNode = DefaultMutableTreeNode("Classes")
-        module["classes"]?.jsonArray?.forEach { classElement ->
+        val classes = module["classes"]?.jsonArray.orEmpty()
+        val classesNode = DefaultMutableTreeNode("Classes: ${classes.size}")
+        classes.forEach { classElement ->
             val classObject = classElement.jsonObject
             val className = classObject["name"]?.jsonPrimitive?.contentOrNull ?: "(class)"
-            val classNode = DefaultMutableTreeNode(className)
+            val bases = classObject["bases"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+            val classNode = entry(if (bases.isEmpty()) className else "$className (bases: ${bases.joinToString(", ")})", classObject)
             classObject["methods"]?.jsonArray?.forEach { methodElement ->
                 val method = methodElement.jsonObject
                 val kind = method["kind"]?.jsonPrimitive?.contentOrNull ?: "method"
                 val name = method["name"]?.jsonPrimitive?.contentOrNull ?: "?"
-                classNode.add(DefaultMutableTreeNode("$kind $name"))
+                classNode.add(entry("$kind $name${lineSuffix(method)}", method))
             }
             classesNode.add(classNode)
         }
         moduleNode.add(classesNode)
 
-        val functionsNode = DefaultMutableTreeNode("Functions")
-        module["functions"]?.jsonArray?.forEach { functionElement ->
+        val functions = module["functions"]?.jsonArray.orEmpty()
+        val functionsNode = DefaultMutableTreeNode("Functions: ${functions.size}")
+        functions.forEach { functionElement ->
             val function = functionElement.jsonObject
             val kind = function["kind"]?.jsonPrimitive?.contentOrNull ?: "function"
             val name = function["name"]?.jsonPrimitive?.contentOrNull ?: "?"
-            functionsNode.add(DefaultMutableTreeNode("$kind $name"))
+            functionsNode.add(entry("$kind $name${lineSuffix(function)}", function))
         }
         moduleNode.add(functionsNode)
 
-        val callsNode = DefaultMutableTreeNode("Calls")
-        module["calls"]?.jsonArray?.forEach { callElement ->
+        val calls = module["calls"]?.jsonArray.orEmpty()
+        val callsNode = DefaultMutableTreeNode("Calls: ${calls.size}")
+        calls.forEach { callElement ->
             val call = callElement.jsonObject
             val caller = call["caller"]?.jsonPrimitive?.contentOrNull ?: "?"
             val callee = call["resolved_callee"]?.jsonPrimitive?.contentOrNull
                 ?: call["callee"]?.jsonPrimitive?.contentOrNull
                 ?: "?"
-            callsNode.add(DefaultMutableTreeNode("$caller -> $callee"))
+            callsNode.add(entry("$caller -> $callee${lineSuffix(call)}", call))
         }
         moduleNode.add(callsNode)
 
         return moduleNode
     }
+
+    private fun lineSuffix(item: JsonObject): String =
+        item["lineno"]?.jsonPrimitive?.intOrNull?.let { "  (line $it)" }.orEmpty()
 
     companion object {
         fun getInstance(project: Project): PyStructureOutputService = project.getService(PyStructureOutputService::class.java)

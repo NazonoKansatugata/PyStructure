@@ -5,6 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.ui.content.ContentFactory
 import java.awt.BorderLayout
@@ -21,6 +22,17 @@ class PyStructureToolWindowFactory : ToolWindowFactory, DumbAware {
         val root = DefaultMutableTreeNode("PyStructure")
         val tree = JTree(DefaultTreeModel(root)).apply {
             showsRootHandles = true
+            addMouseListener(object : java.awt.event.MouseAdapter() {
+                override fun mouseClicked(event: java.awt.event.MouseEvent) {
+                    if (event.clickCount != 2) return
+                    val node = getPathForLocation(event.x, event.y)?.lastPathComponent as? DefaultMutableTreeNode
+                    val entry = node?.userObject as? SourceEntry ?: return
+                    val path = entry.path ?: return
+                    val file = LocalFileSystem.getInstance().findFileByPath(path.replace('\\', '/')) ?: return
+                    val line = ((entry.line ?: 1) - 1).coerceAtLeast(0)
+                    OpenFileDescriptor(project, file, line, 0).navigate(true)
+                }
+            })
         }
 
         val statusArea = JTextArea().apply {

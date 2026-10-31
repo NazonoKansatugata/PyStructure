@@ -16,7 +16,6 @@
   ],
   "activationEvents": [
     "onCommand:pystructure.analyzeWorkspace",
-    "onCommand:pystructure.showGraph",
     "onView:pystructureResults"
   ],
   "main": "./out/extension.js",
@@ -33,10 +32,6 @@
       {
         "command": "pystructure.analyzeWorkspace",
         "title": "PyStructure: Analyze Workspace"
-      },
-      {
-        "command": "pystructure.showGraph",
-        "title": "PyStructure: Show Dependency Graph"
       }
     ]
   },
