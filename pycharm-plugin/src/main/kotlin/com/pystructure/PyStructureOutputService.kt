@@ -3,6 +3,7 @@ package com.pystructure
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.ToolWindowManager
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
@@ -33,8 +34,20 @@ class PyStructureOutputService(private val project: Project) {
         graphPanel = graph
     }
 
-    fun showJson(stdout: String, projectBasePath: String, command: String) {
+    // Tool Window を開いて内容を生成させ、attach 済みの状態で block を実行する
+    private fun withToolWindow(block: () -> Unit) {
         ApplicationManager.getApplication().invokeLater {
+            val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("PyStructure")
+            if (toolWindow == null) {
+                block()
+            } else {
+                toolWindow.show { block() }
+            }
+        }
+    }
+
+    fun showJson(stdout: String, projectBasePath: String, command: String) {
+        withToolWindow {
             try {
                 val root = parseAnalysis(stdout, projectBasePath, command)
                 treeModel?.setRoot(root)
@@ -47,7 +60,7 @@ class PyStructureOutputService(private val project: Project) {
     }
 
     fun showFailure(text: String) {
-        ApplicationManager.getApplication().invokeLater {
+        withToolWindow {
             val root = DefaultMutableTreeNode("PyStructure analysis failed")
             root.add(DefaultMutableTreeNode(text))
             treeModel?.setRoot(root)
