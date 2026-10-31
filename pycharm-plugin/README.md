@@ -1,4 +1,4 @@
-# PyStructure PyCharm Plugin
+﻿# PyStructure PyCharm Plugin
 
 PyStructure の解析結果を PyCharm から確認するプラグインです。
 
@@ -41,7 +41,7 @@ cd pycharm-plugin
 プラグインパッケージは次の場所に生成されます。
 
 ```text
-pycharm-plugin\build\distributions\pystructure-pycharm-0.2.0.zip
+pycharm-plugin\build\distributions\pystructure-pycharm-0.3.0.zip
 ```
 
 PyCharmで **Settings | Plugins** を開き、歯車メニューから **Install Plugin from Disk...** を選択して、生成されたZIPファイルを指定してください。インストール後、PyCharmを再起動します。

@@ -2,7 +2,7 @@
   "name": "pystructure-vscode",
   "displayName": "PyStructure",
   "description": "VS Code extension scaffold for the PyStructure analyzer.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "pystructure",
   "repository": {
     "type": "git",
