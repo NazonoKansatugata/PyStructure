@@ -92,6 +92,10 @@ class DependencyGraphPanel(
         canvas.setGraph(nodes, edges)
     }
 
+    fun highlightModules(moduleNames: List<String>) {
+        canvas.highlightModules(moduleNames)
+    }
+
     private fun updateFilter() {
         canvas.setFilter(searchField.text.trim())
     }
@@ -112,6 +116,7 @@ private class GraphCanvas(
     private var fitPending = false
     private var draggedNode: PositionedNode? = null
     private var selectedNodeId: String? = null
+    private var highlightedIds: Set<String> = emptySet()
     private var hoveredNodeId: String? = null
     private var neighbors = emptyMap<String, Set<String>>()
     private var lastMouseX = 0
@@ -204,6 +209,7 @@ private class GraphCanvas(
             }
         }
         selectedNodeId = null
+        highlightedIds = emptySet()
         hoveredNodeId = null
         fitPending = true
         if (width > 0 && height > 0) fitGraph()
@@ -222,6 +228,15 @@ private class GraphCanvas(
 
     fun clearSelection() {
         selectedNodeId = null
+        highlightedIds = emptySet()
+        repaint()
+    }
+
+    // 助言の対象モジュールを強調する。ノード ID は "module::<モジュール名>"。
+    fun highlightModules(moduleNames: List<String>) {
+        val wanted = moduleNames.mapTo(HashSet()) { "module::$it" }
+        selectedNodeId = null
+        highlightedIds = nodes.map { it.data.id }.filterTo(HashSet()) { it in wanted }
         repaint()
     }
 
@@ -337,6 +352,7 @@ private class GraphCanvas(
         val selected = selectedNodeId
         val activeIds: Set<String>? = when {
             selected != null -> setOf(selected) + neighbors[selected].orEmpty()
+            highlightedIds.isNotEmpty() -> highlightedIds
             filter.isNotEmpty() -> nodes.filter { matchesFilter(it.data) }.mapTo(HashSet()) { it.data.id }
             else -> null
         }

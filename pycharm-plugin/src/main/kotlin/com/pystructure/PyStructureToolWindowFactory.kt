@@ -52,6 +52,20 @@ class PyStructureToolWindowFactory : ToolWindowFactory, DumbAware {
             addTab("Analysis", JScrollPane(tree))
             addTab("Dependency Graph", graphPanel)
         }
+
+        // 助言を選択するとグラフ上の対象を強調し、ダブルクリックでグラフタブへ切り替える
+        tree.addTreeSelectionListener { event ->
+            val node = event.path?.lastPathComponent as? DefaultMutableTreeNode
+            val advice = node?.userObject as? AdviceEntry ?: return@addTreeSelectionListener
+            graphPanel.highlightModules(advice.targets)
+        }
+        tree.addMouseListener(object : java.awt.event.MouseAdapter() {
+            override fun mouseClicked(event: java.awt.event.MouseEvent) {
+                if (event.clickCount != 2) return
+                val node = tree.getPathForLocation(event.x, event.y)?.lastPathComponent as? DefaultMutableTreeNode
+                if (node?.userObject is AdviceEntry) tabs.selectedIndex = 1
+            }
+        })
         val panel = JPanel(BorderLayout()).apply {
             add(tabs, BorderLayout.CENTER)
             add(JScrollPane(statusArea), BorderLayout.SOUTH)
