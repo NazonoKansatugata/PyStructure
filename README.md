@@ -46,6 +46,26 @@ pystructure analyze path/to/project --json
 
 新規クローン直後で未インストールの場合は、`src/` を Python の検索パスに追加するか、編集可能インストールを行ってください。
 
+助言（問題・理由・改善案・根拠）を Markdown で出力するには `--markdown` を使います。
+
+```bash
+pystructure analyze path/to/project --markdown > advice.md
+```
+
+## 設定（除外ディレクトリ）
+
+解析対象のプロジェクト直下に `.pystructure.json` を置くと、解析から除外するディレクトリを指定できます。`venv`、`.git`、`__pycache__` などは設定なしでも除外されます。
+
+```json
+{
+  "exclude": ["generated", "vscode-extension/python"]
+}
+```
+
+- `"generated"` のようにディレクトリ名だけを書くと、階層を問わず一致します。
+- `"vscode-extension/python"` のように `/` を含めると、プロジェクト直下からのパスとして一致します。
+- ファイルが無い、または形式が不正な場合は、警告をログに出して既定の設定で解析します。
+
 ## テスト
 
 ```bash

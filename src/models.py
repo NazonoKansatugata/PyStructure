@@ -206,6 +206,30 @@ class GraphEdge:
         }
 
 
+@dataclass(frozen=True)
+class Advice:
+    """解析結果に基づく助言。evidence は判定に使った事実を保持する。"""
+
+    rule_id: str
+    severity: str
+    title: str
+    reason: str
+    suggestions: tuple[str, ...]
+    targets: tuple[str, ...]
+    evidence: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "rule_id": self.rule_id,
+            "severity": self.severity,
+            "title": self.title,
+            "reason": self.reason,
+            "suggestions": list(self.suggestions),
+            "targets": list(self.targets),
+            "evidence": self.evidence,
+        }
+
+
 @dataclass
 class AnalysisResult:
     root: Path

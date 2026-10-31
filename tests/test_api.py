@@ -20,7 +20,7 @@ class ApiTests(unittest.TestCase):
             payload = analyze_project_payload(root)
 
             self.assertIsInstance(bundle, AnalysisBundle)
-            self.assertEqual(set(payload.keys()), {"analysis", "graph"})
+            self.assertEqual(set(payload.keys()), {"analysis", "graph", "advice"})
             self.assertEqual(payload["analysis"]["root"], str(root.resolve()))
             self.assertEqual(payload["analysis"]["modules"][0]["module_name"], "module")
             self.assertTrue(payload["graph"]["nodes"])

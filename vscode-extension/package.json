@@ -2,7 +2,7 @@
   "name": "pystructure-vscode",
   "displayName": "PyStructure",
   "description": "VS Code extension scaffold for the PyStructure analyzer.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "pystructure",
   "repository": {
     "type": "git",
@@ -32,8 +32,32 @@
       {
         "command": "pystructure.analyzeWorkspace",
         "title": "PyStructure: Analyze Workspace"
+      },
+      {
+        "command": "pystructure.exportAdviceMarkdown",
+        "title": "PyStructure: Export Advice as Markdown",
+        "icon": "$(save)"
+      },
+      {
+        "command": "pystructure.highlightAdvice",
+        "title": "PyStructure: Highlight Advice Targets in Graph"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "pystructure.exportAdviceMarkdown",
+          "when": "view == pystructureResults",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "pystructure.highlightAdvice",
+          "when": "false"
+        }
+      ]
+    }
   },
   "scripts": {
     "prepare-assets": "node scripts/copy-assets.js",

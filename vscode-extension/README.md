@@ -1,4 +1,4 @@
-# PyStructure for VS Code
+﻿# PyStructure for VS Code
 
 PyStructure は Python プロジェクトを静的解析し、モジュール一覧と依存グラフを表示する VS Code 拡張です。解析対象の Python コードは実行しません。
 
@@ -25,7 +25,7 @@ cd vscode-extension
 他のターミナルでは通常の `npm install` と `npm run package` を使えます。VSIX は次の場所に生成されます。
 
 ```text
-vscode-extension/pystructure-vscode-0.2.0.vsix
+vscode-extension/pystructure-vscode-0.3.0.vsix
 ```
 
 `package` スクリプトは拡張をコンパイルし、共有 Webview ファイルと Python CLI を拡張内にコピーしてから VSIX を作成します。これらのコピー先は生成物なので、リポジトリにはコミットしません。
@@ -36,7 +36,7 @@ vscode-extension/pystructure-vscode-0.2.0.vsix
 
 1. VS Code の「拡張機能」ビューを開きます。
 2. 拡張機能ビュー右上の `...` メニューから「VSIX からのインストール」を選びます。
-3. `pystructure-vscode-0.2.0.vsix` を選択します。
+3. `pystructure-vscode-0.3.0.vsix` を選択します。
 4. インストール後、VS Code を再読み込みします。
 
 ### コマンドから
@@ -44,13 +44,13 @@ vscode-extension/pystructure-vscode-0.2.0.vsix
 リポジトリのルートで実行します。
 
 ```powershell
-code --install-extension .\vscode-extension\pystructure-vscode-0.2.0.vsix
+code --install-extension .\vscode-extension\pystructure-vscode-0.3.0.vsix
 ```
 
 同じバージョンを入れ直す場合は `--force` を付けます。
 
 ```powershell
-code --install-extension .\vscode-extension\pystructure-vscode-0.2.0.vsix --force
+code --install-extension .\vscode-extension\pystructure-vscode-0.3.0.vsix --force
 ```
 
 ## 使い方
@@ -60,6 +60,10 @@ code --install-extension .\vscode-extension\pystructure-vscode-0.2.0.vsix --forc
 3. `PyStructure: Analyze Workspace` を実行します。
 
 このコマンド1つで、Explorer の `PyStructure Results` に解析結果をツリー表示し、依存グラフのパネルも開きます。
+
+ツリーの先頭の `Advice` には、解析結果に基づく助言（問題の理由・改善案・対象）が表示されます。現在は循環参照を検出します。助言をクリックすると、依存グラフ上の対象モジュールが強調表示されます（`Esc` で解除）。助言はルールに基づく目安であり、必ず修正が必要という意味ではありません。
+
+助言は Markdown ファイルとして保存できます。PyStructure Results ビューのタイトルバーにある保存アイコン、またはコマンドパレットの `PyStructure: Export Advice as Markdown` を使います。
 
 グラフでは、ノードのドラッグで位置調整、背景ドラッグで移動、ホイールでズームできます。ノードをクリックすると隣接モジュールを強調表示し、ホバーすると行数・依存数・深度などを表示します。ダブルクリックすると対応する Python ファイルを開きます。検索、色分け、`Fit`、`Re-layout` も利用できます。
 

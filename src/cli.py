@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from api import analyze_project
-from exporter import GraphvizExporter, JsonExporter, TextExporter
+from exporter import GraphvizExporter, JsonExporter, MarkdownExporter, TextExporter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -15,6 +15,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyze_parser.add_argument("path", type=Path, help="Root directory to analyze")
     analyze_parser.add_argument("--json", action="store_true", help="Output JSON")
     analyze_parser.add_argument("--graphviz", action="store_true", help="Output Graphviz DOT")
+    analyze_parser.add_argument("--markdown", action="store_true", help="Output advice as Markdown")
 
     return parser
 
@@ -28,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.json:
             print(JsonExporter().export(bundle.analysis, bundle.graph))
+        elif args.markdown:
+            print(MarkdownExporter().export(bundle.analysis, bundle.graph), end="")
         elif args.graphviz:
             print(GraphvizExporter().export(bundle.analysis, bundle.graph))
         else:

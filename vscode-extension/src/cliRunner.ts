@@ -8,10 +8,18 @@ type CliError = Error & {
 };
 
 export async function runPyStructureCli(scriptPath: string, workspacePath: string): Promise<CliPayload> {
+  return JSON.parse(await runPyStructureCliText(scriptPath, workspacePath, '--json')) as CliPayload;
+}
+
+export async function runPyStructureCliText(
+  scriptPath: string,
+  workspacePath: string,
+  formatFlag: '--json' | '--markdown'
+): Promise<string> {
   const attempts = [
-    { command: 'python', args: [scriptPath, 'analyze', workspacePath, '--json'] },
-    { command: 'python3', args: [scriptPath, 'analyze', workspacePath, '--json'] },
-    { command: 'py', args: ['-3', scriptPath, 'analyze', workspacePath, '--json'] },
+    { command: 'python', args: [scriptPath, 'analyze', workspacePath, formatFlag] },
+    { command: 'python3', args: [scriptPath, 'analyze', workspacePath, formatFlag] },
+    { command: 'py', args: ['-3', scriptPath, 'analyze', workspacePath, formatFlag] },
   ];
   const env = {
     ...process.env,
@@ -42,7 +50,7 @@ export async function runPyStructureCli(scriptPath: string, workspacePath: strin
         );
       });
 
-      return JSON.parse(stdout) as CliPayload;
+      return stdout;
     } catch (error) {
       lastError = error as CliError;
     }

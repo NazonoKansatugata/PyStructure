@@ -22,6 +22,10 @@ data class SourceEntry(val label: String, val path: String?, val line: Int?) {
     override fun toString(): String = label
 }
 
+data class AdviceEntry(val label: String, val targets: List<String>) {
+    override fun toString(): String = label
+}
+
 @Service(Service.Level.PROJECT)
 class PyStructureOutputService(private val project: Project) {
     @Volatile
@@ -110,6 +114,8 @@ class PyStructureOutputService(private val project: Project) {
         root.add(DefaultMutableTreeNode("Project: $projectBasePath"))
         root.add(DefaultMutableTreeNode("Command: $command"))
 
+        root.add(buildAdviceNode(payload["advice"]?.jsonArray.orEmpty()))
+
         val analysisNode = DefaultMutableTreeNode("Analysis")
         analysisNode.add(DefaultMutableTreeNode("Root: ${analysis["root"]?.jsonPrimitive?.contentOrNull ?: "(unknown)"}"))
 
@@ -124,6 +130,35 @@ class PyStructureOutputService(private val project: Project) {
         analysisNode.add(DefaultMutableTreeNode("Edges: ${graph["edges"]?.jsonArray?.size ?: 0}"))
         root.add(analysisNode)
         return root
+    }
+
+    private fun buildAdviceNode(advice: List<kotlinx.serialization.json.JsonElement>): DefaultMutableTreeNode {
+        val node = DefaultMutableTreeNode("Advice: ${advice.size}")
+        if (advice.isEmpty()) {
+            node.add(DefaultMutableTreeNode("助言はありません"))
+            return node
+        }
+        advice.forEach { element ->
+            val item = element.jsonObject
+            val title = item["title"]?.jsonPrimitive?.contentOrNull ?: "(advice)"
+            val severity = when (item["severity"]?.jsonPrimitive?.contentOrNull) {
+                "high" -> "高"
+                "medium" -> "中"
+                "low" -> "低"
+                else -> "?"
+            }
+            val targets = item["targets"]?.jsonArray.orEmpty().mapNotNull { it.jsonPrimitive.contentOrNull }
+            val adviceNode = DefaultMutableTreeNode(AdviceEntry("[$severity] $title", targets))
+            adviceNode.add(DefaultMutableTreeNode("理由: ${item["reason"]?.jsonPrimitive?.contentOrNull.orEmpty()}"))
+            val suggestions = DefaultMutableTreeNode("改善案")
+            item["suggestions"]?.jsonArray.orEmpty().forEachIndexed { index, suggestion ->
+                suggestions.add(DefaultMutableTreeNode("${index + 1}. ${suggestion.jsonPrimitive.contentOrNull.orEmpty()}"))
+            }
+            adviceNode.add(suggestions)
+            adviceNode.add(DefaultMutableTreeNode("対象: ${targets.joinToString(", ")}"))
+            node.add(adviceNode)
+        }
+        return node
     }
 
     private fun buildModuleNode(module: JsonObject): DefaultMutableTreeNode {

@@ -2,7 +2,7 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
-import { runPyStructureCli } from './cliRunner';
+import { runPyStructureCli, runPyStructureCliText } from './cliRunner';
 import { GraphPanel } from './graphPanel';
 import { CliPayload, ResultsViewProvider } from './resultsView';
 
@@ -51,7 +51,44 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   });
 
-  context.subscriptions.push(analyzeCommand, outputChannel, resultsView);
+  const highlightCommand = vscode.commands.registerCommand('pystructure.highlightAdvice', (targets: string[]) => {
+    GraphPanel.highlight(targets);
+  });
+
+  const exportCommand = vscode.commands.registerCommand('pystructure.exportAdviceMarkdown', async () => {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      void vscode.window.showWarningMessage('PyStructure: ワークスペースが開かれていません。');
+      return;
+    }
+
+    const target = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, 'pystructure-advice.md')),
+      filters: { Markdown: ['md'] },
+      saveLabel: 'Save Advice',
+    });
+    if (!target) {
+      return;
+    }
+
+    try {
+      const markdown = await runPyStructureCliText(cliScriptPath, workspaceFolder.uri.fsPath, '--markdown');
+      await vscode.workspace.fs.writeFile(target, Buffer.from(markdown, 'utf-8'));
+      const choice = await vscode.window.showInformationMessage(
+        `PyStructure: 助言を保存しました (${path.basename(target.fsPath)})`,
+        '開く'
+      );
+      if (choice === '開く') {
+        await vscode.window.showTextDocument(target);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      outputChannel.appendLine(message);
+      void vscode.window.showErrorMessage(`PyStructure: 助言の保存に失敗しました: ${message}`);
+    }
+  });
+
+  context.subscriptions.push(analyzeCommand, highlightCommand, exportCommand, outputChannel, resultsView);
 }
 
 export function deactivate(): void {

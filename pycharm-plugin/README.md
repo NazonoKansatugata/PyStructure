@@ -1,4 +1,4 @@
-# PyStructure PyCharm Plugin
+﻿# PyStructure PyCharm Plugin
 
 PyStructure の解析結果を PyCharm から確認するプラグインです。
 
@@ -8,6 +8,8 @@ PyStructure の解析結果を PyCharm から確認するプラグインです�
 - PyStructure CLI を `pystructure analyze <project> --json` で呼び出す実装
 - Tool Window の解析結果ツリーと依存グラフ
 - グラフの検索、ズーム、パン、ノード移動、隣接関係の強調表示、指標のツールチップ、再配置、ファイルを開く操作
+- 助言の Markdown 保存。PyStructure Tool Window のタイトルバーの保存アイコン、または `Tools | Export PyStructure Advice as Markdown` から、問題・理由・改善案・根拠をファイルに保存できます
+- 解析結果に基づく助言（循環参照・依存集中・読み進め方）の表示。助言を選択すると、グラフ上の対象モジュールを強調表示し、ダブルクリックで Dependency Graph タブへ切り替えます（`Esc` で解除）
 - 成功/失敗を通知する通知グループ
 
 ## 前提
@@ -39,7 +41,7 @@ cd pycharm-plugin
 プラグインパッケージは次の場所に生成されます。
 
 ```text
-pycharm-plugin\build\distributions\pystructure-pycharm-0.2.0.zip
+pycharm-plugin\build\distributions\pystructure-pycharm-0.3.0.zip
 ```
 
 PyCharmで **Settings | Plugins** を開き、歯車メニューから **Install Plugin from Disk...** を選択して、生成されたZIPファイルを指定してください。インストール後、PyCharmを再起動します。

@@ -9,10 +9,17 @@ data class CliRunResult(
 )
 
 object PyStructureCliRunner {
-    fun run(projectBasePath: String, command: String = "pystructure", jsonOutput: Boolean = false): CliRunResult {
+    fun run(
+        projectBasePath: String,
+        command: String = "pystructure",
+        jsonOutput: Boolean = false,
+        markdownOutput: Boolean = false,
+    ): CliRunResult {
         val arguments = mutableListOf(command, "analyze", projectBasePath)
         if (jsonOutput) {
             arguments.add("--json")
+        } else if (markdownOutput) {
+            arguments.add("--markdown")
         }
 
         arguments[0] = resolveCommand(projectBasePath, command)

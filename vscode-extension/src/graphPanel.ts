@@ -9,6 +9,18 @@ export class GraphPanel {
 
   private allowedPaths = new Set<string>();
 
+  private highlightTargets: string[] | undefined;
+
+  static highlight(targets: string[]): void {
+    const instance = GraphPanel.current;
+    if (!instance) {
+      return;
+    }
+    instance.highlightTargets = targets;
+    void instance.panel.webview.postMessage({ type: 'highlight', targets });
+    instance.panel.reveal(undefined, true);
+  }
+
   private constructor(
     private readonly panel: vscode.WebviewPanel,
     private payload: CliPayload
@@ -44,12 +56,16 @@ export class GraphPanel {
 
   private update(payload: CliPayload): void {
     this.payload = payload;
+    this.highlightTargets = undefined;
     this.sendData();
   }
 
   private sendData(): void {
     this.allowedPaths = new Set(this.payload.analysis.modules.map((module) => module.path));
     void this.panel.webview.postMessage({ type: 'data', payload: this.payload });
+    if (this.highlightTargets) {
+      void this.panel.webview.postMessage({ type: 'highlight', targets: this.highlightTargets });
+    }
   }
 
   private async openFile(filePath: string): Promise<void> {
@@ -87,6 +103,8 @@ export class GraphPanel {
     window.addEventListener('message', (event) => {
       if (event.data.type === 'data') {
         graph.setData(event.data.payload);
+      } else if (event.data.type === 'highlight') {
+        graph.highlight(event.data.targets);
       }
     });
     vscode.postMessage({ type: 'ready' });
