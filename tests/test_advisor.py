@@ -9,13 +9,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from advisor import AdviceEngine
 from api import analyze_project, analyze_project_payload as _full_payload
-from config import FAN_IN_THRESHOLD, FAN_OUT_THRESHOLD, LARGE_MODULE_LINES, READING_ORDER_MAX_PER_STAGE
+from config import (
+    FAN_IN_THRESHOLD,
+    FAN_OUT_THRESHOLD,
+    LARGE_MODULE_LINES,
+    READING_ORDER_MAX_PER_STAGE,
+    VERY_LARGE_MODULE_LINES,
+)
 
 
 def analyze_project_payload(root: Path) -> dict:
-    """循環・依存集中のテスト用に、読み進め方の助言を除いた payload を返す。"""
+    """循環・依存集中のテスト用に、他ルールの助言を除いた payload を返す。"""
     payload = _full_payload(root)
-    payload["advice"] = [item for item in payload["advice"] if item["rule_id"] != "reading-order"]
+    payload["advice"] = [
+        item for item in payload["advice"] if item["rule_id"] in {"circular-dependency", "dependency-concentration"}
+    ]
     return payload
 
 
@@ -192,6 +200,84 @@ class ReadingOrderAdviceTests(unittest.TestCase):
             targets = self._reading_order(root)[0]["targets"]
 
             self.assertNotIn("orphan", targets)
+
+
+class UnreachableModuleAdviceTests(unittest.TestCase):
+    def _advice(self, root: Path) -> list[dict]:
+        return [item for item in _full_payload(root)["advice"] if item["rule_id"] == "unreachable-module"]
+
+    def test_groups_unreachable_modules_into_one_advice(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write(root, "app.py", "import util\n\nif __name__ == \"__main__\":\n    pass\n")
+            _write(root, "util.py", "X = 1\n")
+            _write(root, "old_b.py", "X = 1\n")
+            _write(root, "old_a.py", "import util\n")
+
+            advices = self._advice(root)
+
+            self.assertEqual(len(advices), 1)
+            self.assertEqual(advices[0]["severity"], "low")
+            self.assertEqual(advices[0]["targets"], ["old_a", "old_b"])
+            self.assertEqual(sorted(advices[0]["evidence"]["modules"]), ["old_a", "old_b"])
+
+    def test_no_advice_when_everything_is_reachable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write(root, "app.py", "import util\n\nif __name__ == \"__main__\":\n    pass\n")
+            _write(root, "util.py", "X = 1\n")
+
+            self.assertEqual(self._advice(root), [])
+
+    def test_ignores_package_init_modules(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write(root, "app.py", "\nif __name__ == \"__main__\":\n    pass\n")
+            _write(root, "pkg/__init__.py", "")
+
+            self.assertEqual(self._advice(root), [])
+
+
+class LargeModuleAdviceTests(unittest.TestCase):
+    def _advice(self, root: Path) -> list[dict]:
+        return [item for item in _full_payload(root)["advice"] if item["rule_id"] == "large-module"]
+
+    def test_reports_large_module_with_class_and_function_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            body = "class A:\n    pass\n\ndef f():\n    pass\n" + "X = 1\n" * LARGE_MODULE_LINES
+            _write(root, "big.py", body)
+
+            advices = self._advice(root)
+
+            self.assertEqual(len(advices), 1)
+            self.assertEqual(advices[0]["severity"], "low")
+            self.assertEqual(advices[0]["targets"], ["big"])
+            self.assertEqual(advices[0]["evidence"]["class_count"], 1)
+            self.assertEqual(advices[0]["evidence"]["function_count"], 1)
+
+    def test_very_large_module_is_medium(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write(root, "huge.py", "X = 1\n" * VERY_LARGE_MODULE_LINES)
+
+            self.assertEqual(self._advice(root)[0]["severity"], "medium")
+
+    def test_small_module_is_not_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write(root, "small.py", "X = 1\n" * (LARGE_MODULE_LINES - 1))
+
+            self.assertEqual(self._advice(root), [])
+
+    def test_module_already_covered_by_concentration_is_not_duplicated(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write(root, "hub.py", "X = 1\n" * LARGE_MODULE_LINES)
+            for index in range(FAN_IN_THRESHOLD):
+                _write(root, f"user{index}.py", "import hub\n")
+
+            self.assertEqual(self._advice(root), [])
 
 
 if __name__ == "__main__":

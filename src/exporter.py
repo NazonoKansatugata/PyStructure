@@ -23,6 +23,41 @@ class JsonExporter:
 
 
 @dataclass(frozen=True)
+class MarkdownExporter:
+    """助言を、問題・理由・改善案・根拠の形で Markdown にまとめる。"""
+
+    _SEVERITY_LABELS = {"high": "高", "medium": "中", "low": "低"}
+
+    def export(self, analysis: AnalysisResult, graph: DependencyGraph) -> str:
+        advice_list = AdviceEngine().advise(analysis, graph)
+        lines = [
+            "# PyStructure 解析結果に基づくアドバイス",
+            "",
+            f"- 対象: `{analysis.root}`",
+            f"- モジュール数: {len(analysis.modules)}",
+            f"- アドバイス数: {len(advice_list)}",
+            "",
+            "> 重要度はルールに基づく暫定評価であり、実際の障害リスクを示すものではありません。",
+        ]
+        if not advice_list:
+            lines += ["", "アドバイスはありません。"]
+
+        for index, advice in enumerate(advice_list, start=1):
+            label = self._SEVERITY_LABELS.get(advice.severity, advice.severity)
+            lines += ["", f"## {index}. {advice.title}（重要度: {label}）", "", f"ルール: `{advice.rule_id}`", ""]
+            lines += ["### 理由", "", advice.reason, ""]
+            if advice.targets:
+                lines += ["### 対象", ""] + [f"- `{target}`" for target in advice.targets] + [""]
+            if advice.suggestions:
+                lines += ["### 改善案", ""] + [f"{n}. {text}" for n, text in enumerate(advice.suggestions, start=1)] + [""]
+            if advice.evidence:
+                evidence = json.dumps(advice.evidence, ensure_ascii=False, indent=2, default=str)
+                lines += ["### 根拠", "", "```json", evidence, "```"]
+
+        return "\n".join(lines).rstrip() + "\n"
+
+
+@dataclass(frozen=True)
 class GraphvizExporter:
     def export(self, analysis: AnalysisResult, graph: DependencyGraph) -> str:
         lines = ["digraph PyStructure {"]

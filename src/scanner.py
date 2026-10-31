@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from config import EXCLUDED_DIR_NAMES, EXCLUDED_FILE_PREFIXES
+from settings import ProjectSettings
 
 
 class ProjectScanner:
@@ -12,9 +13,10 @@ class ProjectScanner:
 
     def scan(self, root: Path) -> list[Path]:
         root = root.resolve()
+        settings = ProjectSettings.load(root)
         files: list[Path] = []
         for path in root.rglob("*.py"):
-            if self._is_excluded(path, root):
+            if self._is_excluded(path, root, settings):
                 continue
             files.append(path)
         return sorted(files)
@@ -28,8 +30,10 @@ class ProjectScanner:
             return root.name
         return ".".join(parts)
 
-    def _is_excluded(self, path: Path, root: Path) -> bool:
+    def _is_excluded(self, path: Path, root: Path, settings: ProjectSettings) -> bool:
         if path.name.startswith(EXCLUDED_FILE_PREFIXES):
             return True
         relative_parts = path.resolve().relative_to(root).parts
-        return any(part in self.excluded_names for part in relative_parts)
+        if any(part in self.excluded_names for part in relative_parts):
+            return True
+        return settings.is_excluded(relative_parts)

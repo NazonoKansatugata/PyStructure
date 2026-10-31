@@ -9,9 +9,11 @@ from config import (
     LARGE_MODULE_LINES,
     READING_ORDER_MAX_PER_STAGE,
     READING_ORDER_MAX_STAGES,
+    UNREACHABLE_IGNORED_NAMES,
+    VERY_LARGE_MODULE_LINES,
 )
 from metrics import MetricsAnalyzer
-from models import Advice, AnalysisResult
+from models import Advice, AnalysisResult, ModuleMetrics
 from graph import DependencyGraph
 
 SEVERITY_HIGH = "high"
@@ -95,6 +97,13 @@ class CircularDependencyRule:
                     parents[target] = current
                     queue.append(target)
         return [start]
+
+
+def is_concentrated(metrics: ModuleMetrics) -> bool:
+    """依存集中ルールの対象かどうか。巨大モジュールのルールとの重複判定にも使う。"""
+    return metrics.fan_in >= FAN_IN_THRESHOLD or (
+        metrics.fan_out >= FAN_OUT_THRESHOLD and not metrics.is_entry
+    )
 
 
 class DependencyConcentrationRule:
@@ -211,12 +220,106 @@ class ReadingOrderRule:
         ]
 
 
+class UnreachableModuleRule:
+    """エントリーポイントから import をたどっても到達できないモジュールの確認を促す。
+
+    動的 import やプラグイン機構、単体スクリプトなど意図的な場合もあるため、断定しない。
+    """
+
+    rule_id = "unreachable-module"
+
+    def evaluate(self, analysis: AnalysisResult, graph: DependencyGraph) -> list[Advice]:
+        modules = [
+            module
+            for module in analysis.modules
+            if module.metrics.unreachable and module.path.stem not in UNREACHABLE_IGNORED_NAMES
+        ]
+        if not modules:
+            return []
+
+        names = sorted(module.module_name for module in modules)
+        return [
+            Advice(
+                rule_id=self.rule_id,
+                severity=SEVERITY_LOW,
+                title=f"エントリーポイントから到達できないモジュール: {len(names)} 件",
+                reason=(
+                    "エントリーポイントから import をたどっても到達できないモジュールです。"
+                    "不要になったコードの可能性がありますが、動的な import や単体で実行するスクリプト、"
+                    "テストなど、意図的に独立している場合もあります。"
+                ),
+                suggestions=(
+                    "動的 import や外部から直接実行されるなど、意図的に独立しているモジュールか確認してください。",
+                    "使われていない場合は、削除や整理を検討してください。",
+                    "必要なモジュールであれば、利用元から import されているか確認してください。",
+                ),
+                targets=tuple(names),
+                evidence={"modules": {module.module_name: str(module.path) for module in modules}},
+            )
+        ]
+
+
+class LargeModuleRule:
+    """行数が大きく、複数の責務を持っている可能性があるモジュールの分割を検討させる。
+
+    行数だけでは責務の大きさは判断できないため、クラス・関数の数を併記して判断材料にする。
+    依存集中ルールで既に扱われるモジュールは重複を避けて除外する。
+    """
+
+    rule_id = "large-module"
+
+    def evaluate(self, analysis: AnalysisResult, graph: DependencyGraph) -> list[Advice]:
+        advices: list[Advice] = []
+        for module in analysis.modules:
+            metrics = module.metrics
+            if metrics.line_count < LARGE_MODULE_LINES or is_concentrated(metrics):
+                continue
+
+            class_count = len(module.classes)
+            function_count = len(module.functions)
+            very_large = metrics.line_count >= VERY_LARGE_MODULE_LINES
+            advices.append(
+                Advice(
+                    rule_id=self.rule_id,
+                    severity=SEVERITY_MEDIUM if very_large else SEVERITY_LOW,
+                    title=f"規模の大きいモジュール: {module.module_name}",
+                    reason=(
+                        f"{metrics.line_count} 行あり、クラス {class_count} 個、関数 {function_count} 個を含みます。"
+                        "規模が大きいと、読み解きや変更が難しくなり、複数の責務を持っている可能性があります。"
+                    ),
+                    suggestions=(
+                        "モジュール内の処理を役割ごとに整理し、分けられるまとまりがないか確認してください。",
+                        "関連するクラスや関数を別モジュールに切り出すことを検討してください。",
+                        "規模が大きくても単一の責務であれば、そのままで問題ない場合もあります。",
+                    ),
+                    targets=(module.module_name,),
+                    evidence={
+                        "line_count": metrics.line_count,
+                        "class_count": class_count,
+                        "function_count": function_count,
+                        "thresholds": {
+                            "large_module_lines": LARGE_MODULE_LINES,
+                            "very_large_module_lines": VERY_LARGE_MODULE_LINES,
+                        },
+                        "path": str(module.path),
+                    },
+                )
+            )
+        return advices
+
+
 class AdviceEngine:
     def __init__(self, rules: list[AdviceRule] | None = None) -> None:
         self._rules: list[AdviceRule] = (
             rules
             if rules is not None
-            else [CircularDependencyRule(), DependencyConcentrationRule(), ReadingOrderRule()]
+            else [
+                CircularDependencyRule(),
+                DependencyConcentrationRule(),
+                LargeModuleRule(),
+                UnreachableModuleRule(),
+                ReadingOrderRule(),
+            ]
         )
 
     def advise(self, analysis: AnalysisResult, graph: DependencyGraph) -> list[Advice]:
