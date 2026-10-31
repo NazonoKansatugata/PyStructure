@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from advisor import AdviceEngine
 from graph import DependencyGraph
 from models import AnalysisResult
 
@@ -14,6 +15,7 @@ class JsonExporter:
         return {
             "analysis": analysis.to_dict(),
             "graph": graph.to_dict(),
+            "advice": [advice.to_dict() for advice in AdviceEngine().advise(analysis, graph)],
         }
 
     def export(self, analysis: AnalysisResult, graph: DependencyGraph) -> str:

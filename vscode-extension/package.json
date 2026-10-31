@@ -32,8 +32,20 @@
       {
         "command": "pystructure.analyzeWorkspace",
         "title": "PyStructure: Analyze Workspace"
+      },
+      {
+        "command": "pystructure.highlightAdvice",
+        "title": "PyStructure: Highlight Advice Targets in Graph"
       }
-    ]
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "pystructure.highlightAdvice",
+          "when": "false"
+        }
+      ]
+    }
   },
   "scripts": {
     "prepare-assets": "node scripts/copy-assets.js",

@@ -71,12 +71,15 @@ class MetricsAnalyzer:
         return depths
 
     def _cyclic_modules(self, outgoing: dict[str, set[str]]) -> set[str]:
-        """Return modules that belong to a strongly connected component of size > 1 (iterative Tarjan)."""
+        return {name for component in self.cyclic_components(outgoing) for name in component}
+
+    def cyclic_components(self, outgoing: dict[str, set[str]]) -> list[list[str]]:
+        """Return strongly connected components of size > 1, each sorted (iterative Tarjan)."""
         index_of: dict[str, int] = {}
         lowlink: dict[str, int] = {}
         on_stack: set[str] = set()
         stack: list[str] = []
-        cyclic: set[str] = set()
+        cyclic: list[list[str]] = []
         counter = 0
 
         for root in sorted(outgoing):
@@ -118,6 +121,6 @@ class MetricsAnalyzer:
                         if member == node:
                             break
                     if len(component) > 1:
-                        cyclic.update(component)
+                        cyclic.append(sorted(component))
 
-        return cyclic
+        return sorted(cyclic)

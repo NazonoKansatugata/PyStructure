@@ -57,6 +57,7 @@
     let alpha = 0;
     let frame = 0;
     let selected = null;
+    let highlighted = null;
     let hovered = null;
     let query = '';
     let colorMode = 'status';
@@ -88,6 +89,7 @@
         const item = {
           id: node.id,
           label: node.label,
+          module: node.module_name,
           path: node.path,
           metrics,
           x: Math.cos(angle) * radius,
@@ -114,6 +116,7 @@
       }
 
       selected = null;
+      highlighted = null;
       hovered = null;
       empty.hidden = nodes.length > 0;
       const cycles = nodes.filter((node) => node.metrics.in_cycle).length;
@@ -251,6 +254,7 @@
 
     function activeSet() {
       if (selected) return new Set([selected.id, ...neighbors.get(selected.id)]);
+      if (highlighted) return highlighted;
       if (query) return new Set(nodes.filter((node) => node.label.toLowerCase().includes(query)).map((node) => node.id));
       return null;
     }
@@ -437,6 +441,7 @@
     window.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         selected = null;
+        highlighted = null;
         search.value = '';
         query = '';
         schedule();
@@ -466,8 +471,16 @@
       schedule();
     }).observe(canvas);
 
+    function highlight(moduleNames) {
+      selected = null;
+      const wanted = new Set(moduleNames || []);
+      const ids = nodes.filter((node) => wanted.has(node.module)).map((node) => node.id);
+      highlighted = ids.length > 0 ? new Set(ids) : null;
+      schedule();
+    }
+
     renderLegend();
-    return { setData };
+    return { setData, highlight };
   }
 
   global.PyStructureGraph = { mount };

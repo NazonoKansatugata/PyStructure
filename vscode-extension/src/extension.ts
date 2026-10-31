@@ -51,7 +51,11 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   });
 
-  context.subscriptions.push(analyzeCommand, outputChannel, resultsView);
+  const highlightCommand = vscode.commands.registerCommand('pystructure.highlightAdvice', (targets: string[]) => {
+    GraphPanel.highlight(targets);
+  });
+
+  context.subscriptions.push(analyzeCommand, highlightCommand, outputChannel, resultsView);
 }
 
 export function deactivate(): void {

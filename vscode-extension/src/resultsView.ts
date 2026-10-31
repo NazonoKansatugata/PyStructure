@@ -25,6 +25,16 @@ export type CliModule = {
   }>;
 };
 
+export type CliAdvice = {
+  rule_id: string;
+  severity: 'high' | 'medium' | 'low';
+  title: string;
+  reason: string;
+  suggestions: string[];
+  targets: string[];
+  evidence: Record<string, unknown>;
+};
+
 export type CliPayload = {
   analysis: {
     root: string;
@@ -34,6 +44,13 @@ export type CliPayload = {
     nodes: unknown[];
     edges: unknown[];
   };
+  advice?: CliAdvice[];
+};
+
+const SEVERITY_LABELS: Record<CliAdvice['severity'], string> = {
+  high: '高',
+  medium: '中',
+  low: '低',
 };
 
 class ResultNode extends vscode.TreeItem {
@@ -46,6 +63,31 @@ class ResultNode extends vscode.TreeItem {
     super(label, collapsibleState);
     this.description = description;
   }
+}
+
+function buildAdviceNode(advice: CliAdvice): ResultNode {
+  const none = vscode.TreeItemCollapsibleState.None;
+  const reason = new ResultNode(`理由: ${advice.reason}`, none);
+  reason.tooltip = advice.reason;
+  const suggestions = new ResultNode(
+    '改善案',
+    vscode.TreeItemCollapsibleState.Expanded,
+    advice.suggestions.map((text, index) => {
+      const item = new ResultNode(`${index + 1}. ${text}`, none);
+      item.tooltip = text;
+      return item;
+    })
+  );
+  const targets = new ResultNode(`対象: ${advice.targets.join(', ')}`, none);
+
+  const node = new ResultNode(advice.title, vscode.TreeItemCollapsibleState.Expanded, [reason, suggestions, targets], `重要度: ${SEVERITY_LABELS[advice.severity] ?? advice.severity}`);
+  node.tooltip = 'クリックで依存グラフ上の対象を強調表示します';
+  node.command = {
+    command: 'pystructure.highlightAdvice',
+    title: 'Highlight in graph',
+    arguments: [advice.targets],
+  };
+  return node;
 }
 
 function toCallLabel(call: CliModule['calls'][number]): string {
@@ -81,7 +123,17 @@ export class ResultsViewProvider implements vscode.TreeDataProvider<ResultNode> 
     }
 
     if (!element) {
+      const advice = this.latestResult.advice ?? [];
+      const adviceNode = new ResultNode(
+        'Advice',
+        vscode.TreeItemCollapsibleState.Expanded,
+        advice.length > 0
+          ? advice.map(buildAdviceNode)
+          : [new ResultNode('助言はありません', vscode.TreeItemCollapsibleState.None)],
+        `${advice.length} 件`
+      );
       return Promise.resolve([
+        adviceNode,
         new ResultNode(
           'Analysis',
           vscode.TreeItemCollapsibleState.Expanded,
