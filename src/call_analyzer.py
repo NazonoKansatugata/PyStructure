@@ -50,6 +50,9 @@ class _CallVisitor(ast.NodeVisitor):
             return f"{self.module_name}::{self.class_stack[-1]}::{function_name}"
         return f"{self.module_name}::{function_name}"
 
+    def _current_class_name(self) -> str | None:
+        return self.class_stack[-1] if self.class_stack else None
+
     def _call_name(self, node: ast.AST) -> str:
         if isinstance(node, ast.Name):
             return node.id
@@ -60,8 +63,18 @@ class _CallVisitor(ast.NodeVisitor):
 
     def _resolve_callee(self, node: ast.AST) -> str | None:
         if isinstance(node, ast.Name):
+            current_class_name = self._current_class_name()
+            if current_class_name and node.id == current_class_name:
+                return f"{self.module_name}::{current_class_name}"
             return self.import_map.get(node.id)
         if isinstance(node, ast.Attribute):
+            current_class_name = self._current_class_name()
+            if (
+                current_class_name
+                and isinstance(node.value, ast.Name)
+                and node.value.id in {"self", "cls", current_class_name}
+            ):
+                return f"{self.module_name}::{current_class_name}::{node.attr}"
             prefix = self._resolve_callee(node.value)
             if prefix:
                 return f"{prefix}.{node.attr}"

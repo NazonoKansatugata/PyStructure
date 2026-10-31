@@ -23,19 +23,12 @@ class PyStructureAnalyzeAction : AnAction(), DumbAware {
         val command = PyStructureSettings.getInstance().settingsState.cliCommand.trim().ifBlank { "pystructure" }
 
         ApplicationManager.getApplication().executeOnPooledThread {
-            val result = PyStructureCliRunner.run(basePath, command, jsonOutput = false)
+            val result = PyStructureCliRunner.run(basePath, command, jsonOutput = true)
             val outputService = PyStructureOutputService.getInstance(project)
 
             ApplicationManager.getApplication().invokeLater {
                 if (result.exitCode == 0) {
-                    val text = buildString {
-                        appendLine("PyStructure analysis completed")
-                        appendLine("Project: $basePath")
-                        appendLine("Command: $command")
-                        appendLine("stdout:")
-                        appendLine(result.stdout.ifBlank { "(empty)" })
-                    }
-                    outputService.showText(text)
+                    outputService.showJson(result.stdout, basePath, command)
                     NotificationGroupManager.getInstance()
                         .getNotificationGroup("PyStructure")
                         .createNotification(
@@ -55,7 +48,7 @@ class PyStructureAnalyzeAction : AnAction(), DumbAware {
                         appendLine("stdout:")
                         appendLine(result.stdout.ifBlank { "(empty)" })
                     }
-                    outputService.showText(text)
+                    outputService.showFailure(text)
                     NotificationGroupManager.getInstance()
                         .getNotificationGroup("PyStructure")
                         .createNotification(

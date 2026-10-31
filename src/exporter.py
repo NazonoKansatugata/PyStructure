@@ -44,12 +44,21 @@ class TextExporter:
             f"Modules: {len(analysis.modules)}",
             f"Nodes: {len(graph.nodes)}",
             f"Edges: {len(graph.edges)}",
+            f"Circular modules: {sum(1 for module in analysis.modules if module.metrics.in_cycle)}",
+            f"Unreachable modules: {sum(1 for module in analysis.modules if module.metrics.unreachable)}",
+            f"Skipped files: {len(analysis.skipped)}",
             "",
             "Modules:",
         ]
 
         for module in analysis.modules:
-            lines.append(f"- {module.module_name}")
+            metrics = module.metrics
+            flags = [flag for flag, active in (("entry", metrics.is_entry), ("cycle", metrics.in_cycle), ("unreachable", metrics.unreachable)) if active]
+            suffix = f" [{', '.join(flags)}]" if flags else ""
+            lines.append(f"- {module.module_name}{suffix}")
+            lines.append(
+                f"  Metrics: lines={metrics.line_count}, fan_in={metrics.fan_in}, fan_out={metrics.fan_out}, depth={metrics.depth}"
+            )
             lines.append(f"  Imports: {len(module.imports)}")
             for import_info in module.imports:
                 bindings = ", ".join(

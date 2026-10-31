@@ -1,5 +1,6 @@
 .vscode/**
 .gitignore
 src/**
+scripts/**
+out/**/*.map
 tsconfig.json
-README.md

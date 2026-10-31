@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 export type CliModule = {
+  path: string;
   module_name: string;
   imports: Array<{
     module: string | null;

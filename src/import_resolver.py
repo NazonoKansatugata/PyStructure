@@ -2,9 +2,28 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from models import ImportInfo
+
 
 class ImportResolver:
     """Normalize import statements into module targets."""
+
+    def binding_map(self, imports: tuple[ImportInfo, ...]) -> dict[str, str]:
+        """Map each locally bound name to the absolute dotted name it refers to."""
+        bindings: dict[str, str] = {}
+        for item in imports:
+            for binding in item.bindings:
+                if binding.name == "*":
+                    continue
+                if item.module:
+                    bindings[binding.asname or binding.name] = f"{item.module}.{binding.name}"
+                elif item.level == 0:
+                    head = binding.name.split(".")[0]
+                    if binding.asname:
+                        bindings[binding.asname] = binding.name
+                    else:
+                        bindings[head] = head
+        return bindings
 
     def resolve_package_name(self, root: Path, path: Path) -> str:
         root = root.resolve()
